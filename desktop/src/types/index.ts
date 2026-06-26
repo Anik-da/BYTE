@@ -47,3 +47,34 @@ export interface AppConfig {
   user_avatar: string | null;
 }
 
+export interface FileInfo {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  size: number;
+  modified: number;
+}
+
+export interface ProcessInfo {
+  pid: number;
+  name: string;
+  cpu: number;
+  memory: number;
+}
+
+export interface DiskInfo {
+  name: string;
+  mount_point: string;
+  total: number;
+  available: number;
+}
+
+export interface SystemMetrics {
+  cpu_usage: number;
+  ram_used: number;
+  ram_total: number;
+  disks: DiskInfo[];
+  processes: ProcessInfo[];
+}
+
+

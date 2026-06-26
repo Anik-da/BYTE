@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard, MessageSquare, Mic, Eye, Zap, Code, Brain,
   Puzzle, Activity, Settings, User, ChevronLeft, ChevronRight, Hexagon,
+  Terminal as TerminalIcon, Folder,
 } from "lucide-react";
 import { useAppStore } from "../../stores/useAppStore";
 import { Tooltip } from "../ui/Tooltip";
@@ -21,6 +22,8 @@ const iconMap: Record<string, React.ReactNode> = {
   Activity: <Activity size={20} />,
   Settings: <Settings size={20} />,
   User: <User size={20} />,
+  Terminal: <TerminalIcon size={20} />,
+  Folder: <Folder size={20} />,
 };
 
 export function Sidebar() {

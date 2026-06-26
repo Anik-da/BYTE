@@ -7,6 +7,9 @@ import { LoginScreen } from "./pages/LoginScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
+import { Terminal } from "./pages/Terminal";
+import { FileExplorer } from "./pages/FileExplorer";
+import { SystemMonitor } from "./pages/SystemMonitor";
 import { tauriService } from "./services/tauriService";
 import { useThemeStore } from "./stores/useThemeStore";
 import { useAuthStore } from "./stores/useAuthStore";
@@ -82,7 +85,6 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/profile" element={<Profile />} />
-          {/* Future module routes — all redirect to dashboard for now */}
           <Route path="/ai-chat" element={<Dashboard />} />
           <Route path="/voice" element={<Dashboard />} />
           <Route path="/vision" element={<Dashboard />} />
@@ -90,7 +92,9 @@ export default function App() {
           <Route path="/code-studio" element={<Dashboard />} />
           <Route path="/memory" element={<Dashboard />} />
           <Route path="/plugins" element={<Dashboard />} />
-          <Route path="/system-monitor" element={<Dashboard />} />
+          <Route path="/terminal" element={<Terminal />} />
+          <Route path="/files" element={<FileExplorer />} />
+          <Route path="/system-monitor" element={<SystemMonitor />} />
         </Route>
         <Route path="*" element={<Navigate to="/splash" replace />} />
       </Routes>

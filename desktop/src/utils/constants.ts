@@ -27,7 +27,9 @@ export const NAV_ITEMS = [
   { id: "code-studio", label: "Code Studio", icon: "Code", path: "/code-studio", comingSoon: true },
   { id: "memory", label: "Memory", icon: "Brain", path: "/memory", comingSoon: true },
   { id: "plugins", label: "Plugins", icon: "Puzzle", path: "/plugins", comingSoon: true },
-  { id: "system-monitor", label: "System Monitor", icon: "Activity", path: "/system-monitor", comingSoon: true },
+  { id: "terminal", label: "Terminal", icon: "Terminal", path: "/terminal" },
+  { id: "files", label: "File Explorer", icon: "Folder", path: "/files" },
+  { id: "system-monitor", label: "System Monitor", icon: "Activity", path: "/system-monitor" },
 ] as const;
 
 export const SETTINGS_TABS = [

@@ -1,17 +1,13 @@
 import { forwardRef } from "react";
-import { motion } from "framer-motion";
+import { motion, HTMLMotionProps } from "framer-motion";
 import { cn } from "../../utils/cn";
 
-interface ButtonProps {
+interface ButtonProps extends HTMLMotionProps<"button"> {
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
   icon?: React.ReactNode;
   children?: React.ReactNode;
-  className?: string;
-  disabled?: boolean;
-  type?: "button" | "submit" | "reset";
-  onClick?: () => void;
 }
 
 const variants = {
@@ -28,7 +24,7 @@ const sizes = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = "primary", size = "md", loading, icon, children, disabled, type = "button", onClick }, ref) => {
+  ({ className, variant = "primary", size = "md", loading, icon, children, disabled, type = "button", onClick, ...props }, ref) => {
     return (
       <motion.button
         ref={ref}
@@ -45,6 +41,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         disabled={disabled || loading}
         onClick={onClick}
+        {...props}
       >
         {loading ? (
           <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
