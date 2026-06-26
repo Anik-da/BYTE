@@ -20,7 +20,7 @@ export type AccentColor = (typeof ACCENT_COLORS)[number]["value"];
 
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "LayoutDashboard", path: "/" },
-  { id: "ai-chat", label: "AI Chat", icon: "MessageSquare", path: "/ai-chat", comingSoon: true },
+  { id: "ai-chat", label: "AI Chat", icon: "MessageSquare", path: "/ai-chat" },
   { id: "voice", label: "Voice", icon: "Mic", path: "/voice", comingSoon: true },
   { id: "vision", label: "Vision", icon: "Eye", path: "/vision", comingSoon: true },
   { id: "automation", label: "Automation", icon: "Zap", path: "/automation", comingSoon: true },

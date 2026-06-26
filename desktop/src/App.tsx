@@ -8,6 +8,7 @@ import { RegisterScreen } from "./pages/RegisterScreen";
 import { FirstLaunchWizard } from "./pages/FirstLaunchWizard";
 import { LockScreen } from "./pages/LockScreen";
 import { Dashboard } from "./pages/Dashboard";
+import { Chat } from "./pages/Chat";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
 import { Terminal } from "./pages/Terminal";
@@ -143,7 +144,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/ai-chat" element={<Dashboard />} />
+            <Route path="/ai-chat" element={<Chat />} />
             <Route path="/voice" element={<Dashboard />} />
             <Route path="/vision" element={<Dashboard />} />
             <Route path="/automation" element={<Dashboard />} />

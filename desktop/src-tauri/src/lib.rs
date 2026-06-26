@@ -15,6 +15,7 @@ mod memory;
 mod cache;
 mod services;
 mod commands;
+mod ai;
 
 
 #[derive(Serialize)]
@@ -562,7 +563,12 @@ pub fn run() {
             commands::open_workspace,
             commands::save_logs,
             commands::load_logs,
-            commands::index_files_meta
+            commands::index_files_meta,
+
+            // AI Core Commands
+            ai::ai_chat_complete,
+            ai::ai_chat_stream,
+            ai::test_provider_connection
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
