@@ -1,0 +1,89 @@
+# ================================
+# BYTE — Global .gitignore
+# ================================
+
+# === Dependencies ===
+node_modules/
+.pnp/
+.pnp.js
+
+# === Build Outputs ===
+dist/
+build/
+out/
+target/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+*.env
+
+# === Python ===
+venv/
+.venv/
+*.egg
+*.whl
+pip-log.txt
+
+# === Rust / Tauri ===
+target/
+Cargo.lock
+*.rs.bk
+
+# === IDE & Editor ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# === Logs ===
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Testing ===
+coverage/
+.nyc_output/
+*.lcov
+
+# === Database ===
+*.sqlite
+*.sqlite3
+*.db
+
+# === AI Models (large files) ===
+ai/models/*.bin
+ai/models/*.pt
+ai/models/*.onnx
+ai/models/*.safetensors
+voice/models/*.bin
+voice/models/*.pt
+vision/models/*.bin
+vision/models/*.pt
+vision/models/*.onnx
+
+# === OS Files ===
+.DS_Store
+Desktop.ini
+Thumbs.db
+ehthumbs.db
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Misc ===
+.cache/
+tmp/
+temp/
+*.bak
+*.tmp
