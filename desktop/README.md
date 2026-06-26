@@ -1,12 +1,7 @@
-# 🖥️ Desktop App
+# Tauri + React + Typescript
 
-Native desktop application for BYTE, built with **Tauri**.
+This template should help get you started developing with Tauri, React and Typescript in Vite.
 
-## Structure
-- `src-tauri/` — Rust backend (system APIs, native functionality)
-- `src/` — Desktop frontend source
+## Recommended IDE Setup
 
-## Tech
-- Tauri v2
-- Rust
-- WebView2 (Windows) / WebKit (macOS/Linux)
+- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
