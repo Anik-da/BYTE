@@ -37,7 +37,7 @@ export const SETTINGS_TABS = [
   { id: "appearance", label: "Appearance", icon: "Palette" },
   { id: "performance", label: "Performance", icon: "Gauge" },
   { id: "shortcuts", label: "Shortcuts", icon: "Keyboard" },
-  { id: "privacy", label: "Privacy", icon: "Shield" },
+  { id: "security", label: "Security & Auth", icon: "Shield" },
   { id: "permissions", label: "Permissions", icon: "Lock" },
   { id: "updates", label: "Updates", icon: "Download" },
   { id: "about", label: "About BYTE", icon: "Info" },

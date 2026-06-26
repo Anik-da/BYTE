@@ -2,18 +2,18 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Settings as SettingsIcon, Palette, Gauge, Keyboard, Shield, Lock, Download, Info,
-  Check, Monitor, Moon, Sun, ShieldAlert
+  Check, Monitor, Moon, Sun
 } from "lucide-react";
 import { useAppStore } from "../stores/useAppStore";
 import { useThemeStore } from "../stores/useThemeStore";
 import { useSystemInfo } from "../hooks/useSystemInfo";
 import { Toggle } from "../components/ui/Toggle";
 import { GlassPanel } from "../components/ui/GlassPanel";
-import { Button } from "../components/ui/Button";
-import { ACCENT_COLORS, APP_NAME, APP_TAGLINE, SETTINGS_TABS } from "../utils/constants";
+import { ACCENT_COLORS, APP_NAME, APP_TAGLINE, SETTINGS_TABS, AccentColor } from "../utils/constants";
 import { cn } from "../utils/cn";
 import { tauriService } from "../services/tauriService";
-import type { AccentColor } from "../utils/constants";
+import { SecuritySettings } from "../components/settings/SecuritySettings";
+import { PermissionSettings } from "../components/settings/PermissionSettings";
 
 const tabIcons: Record<string, React.ReactNode> = {
   Settings: <SettingsIcon size={18} />, Palette: <Palette size={18} />,
@@ -38,8 +38,7 @@ export function Settings() {
   const [refreshInterval, setRefreshInterval] = useState(2);
   const [devMode, setDevMode] = useState(false);
 
-  // Privacy settings state
-  const [saveCommandHistory, setSaveCommandHistory] = useState(true);
+
 
   useEffect(() => {
     setCurrentPageTitle("Settings");
@@ -206,57 +205,11 @@ export function Settings() {
           </div>
         );
 
-      case "privacy":
-        return (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Data Security</h3>
-              <div className="space-y-4">
-                <Toggle
-                  checked={saveCommandHistory}
-                  onChange={setSaveCommandHistory}
-                  label="Save local terminal command history"
-                  description="Remembers previously executed commands in the terminal between boots"
-                />
-              </div>
-            </div>
+      case "security":
+        return <SecuritySettings />;
 
-            <GlassPanel padding="md" className="border border-red-500/20 bg-red-500/5">
-              <div className="flex gap-3">
-                <ShieldAlert className="text-red-400 flex-shrink-0" size={18} />
-                <div>
-                  <h4 className="text-xs font-semibold text-red-200">Purge Native App Cache</h4>
-                  <p className="text-[11px] text-red-400/80 mt-1 mb-3">
-                    Delete the local config file, terminal database, and base64 cached profile avatar.
-                  </p>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={async () => {
-                      if (confirm("Reset application config? This restarts the application.")) {
-                        try {
-                          await tauriService.saveConfig({
-                            theme_mode: "dark",
-                            accent_color: "blue",
-                            animations_enabled: true,
-                            user_name: null,
-                            user_email: null,
-                            user_avatar: null,
-                          });
-                          window.location.reload();
-                        } catch (err) {
-                          console.error(err);
-                        }
-                      }
-                    }}
-                  >
-                    Clear Local Database & Config
-                  </Button>
-                </div>
-              </div>
-            </GlassPanel>
-          </div>
-        );
+      case "permissions":
+        return <PermissionSettings />;
 
       case "about":
         return (

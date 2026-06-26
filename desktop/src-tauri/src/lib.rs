@@ -7,6 +7,10 @@ use std::process::{Child, ChildStdin, Stdio};
 use std::sync::{Mutex, OnceLock};
 use tauri::Manager;
 
+mod auth_db;
+mod auth_commands;
+
+
 #[derive(Serialize)]
 pub struct SystemInfo {
     pub os: String,
@@ -462,6 +466,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            // Manage Auth State and initialize secure SQLite db
+            app.manage(auth_commands::AuthState {
+                db: std::sync::Mutex::new(None),
+            });
+            auth_commands::init_auth_db(app.handle());
+
             // Build Tray Icon Menu
             let quit_i = tauri::menu::MenuItemBuilder::with_id("quit", "Quit BYTE").build(app)?;
             let toggle_i = tauri::menu::MenuItemBuilder::with_id("toggle", "Show/Hide Window").build(app)?;
@@ -516,7 +526,17 @@ pub fn run() {
             kill_terminal,
             set_autostart,
             is_autostart_enabled,
-            set_always_on_top
+            set_always_on_top,
+            
+            // Authentication & Security Commands
+            auth_commands::register_user,
+            auth_commands::login_user,
+            auth_commands::verify_windows_hello,
+            auth_commands::voice_auth_enroll,
+            auth_commands::voice_auth_verify,
+            auth_commands::face_auth_enroll,
+            auth_commands::face_auth_verify,
+            auth_commands::list_local_users
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

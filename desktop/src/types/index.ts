@@ -1,7 +1,14 @@
 export interface User {
+  id?: number;
   name: string;
+  username?: string;
   email: string;
   avatar?: string;
+  recovery_key?: string;
+  security_questions?: { q1: string; q2: string };
+  permissions?: Record<string, boolean>;
+  preferences?: Record<string, any>;
+  settings?: Record<string, any>;
 }
 
 export interface Notification {

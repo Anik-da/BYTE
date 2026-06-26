@@ -1,9 +1,12 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AppLayout } from "./components/layout/AppLayout";
 import { SplashScreen } from "./pages/SplashScreen";
 import { LoginScreen } from "./pages/LoginScreen";
+import { RegisterScreen } from "./pages/RegisterScreen";
+import { FirstLaunchWizard } from "./pages/FirstLaunchWizard";
+import { LockScreen } from "./pages/LockScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
@@ -14,6 +17,57 @@ import { tauriService } from "./services/tauriService";
 import { useThemeStore } from "./stores/useThemeStore";
 import { useAuthStore } from "./stores/useAuthStore";
 import "./index.css";
+
+function SessionTracker({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLocked, isFirstLaunch, lockSession } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Inactivity auto-lock listener (5 minutes)
+  useEffect(() => {
+    if (!isAuthenticated || isLocked) return;
+
+    let timeoutId: number;
+
+    const resetTimer = () => {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(() => {
+        lockSession();
+      }, 5 * 60 * 1000); // 5 minutes inactivity
+    };
+
+    window.addEventListener("mousemove", resetTimer);
+    window.addEventListener("keydown", resetTimer);
+    window.addEventListener("mousedown", resetTimer);
+    window.addEventListener("scroll", resetTimer);
+
+    resetTimer();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("mousemove", resetTimer);
+      window.removeEventListener("keydown", resetTimer);
+      window.removeEventListener("mousedown", resetTimer);
+      window.removeEventListener("scroll", resetTimer);
+    };
+  }, [isAuthenticated, isLocked, lockSession]);
+
+  // Route security guard
+  useEffect(() => {
+    const publicPaths = ["/splash", "/login", "/register", "/wizard", "/lock"];
+    const isPublic = publicPaths.includes(location.pathname);
+
+    if (isFirstLaunch && location.pathname !== "/wizard") {
+      navigate("/wizard", { replace: true });
+    } else if (isAuthenticated && isLocked && location.pathname !== "/lock") {
+      navigate("/lock", { replace: true });
+    } else if (!isAuthenticated && !isPublic) {
+      navigate("/splash", { replace: true });
+    }
+  }, [isAuthenticated, isLocked, isFirstLaunch, location.pathname, navigate]);
+
+  return <>{children}</>;
+}
 
 export default function App() {
   useEffect(() => {
@@ -78,26 +132,31 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/splash" element={<SplashScreen />} />
-        <Route path="/login" element={<LoginScreen />} />
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/ai-chat" element={<Dashboard />} />
-          <Route path="/voice" element={<Dashboard />} />
-          <Route path="/vision" element={<Dashboard />} />
-          <Route path="/automation" element={<Dashboard />} />
-          <Route path="/code-studio" element={<Dashboard />} />
-          <Route path="/memory" element={<Dashboard />} />
-          <Route path="/plugins" element={<Dashboard />} />
-          <Route path="/terminal" element={<Terminal />} />
-          <Route path="/files" element={<FileExplorer />} />
-          <Route path="/system-monitor" element={<SystemMonitor />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/splash" replace />} />
-      </Routes>
+      <SessionTracker>
+        <Routes>
+          <Route path="/splash" element={<SplashScreen />} />
+          <Route path="/login" element={<LoginScreen />} />
+          <Route path="/register" element={<RegisterScreen />} />
+          <Route path="/wizard" element={<FirstLaunchWizard />} />
+          <Route path="/lock" element={<LockScreen />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/ai-chat" element={<Dashboard />} />
+            <Route path="/voice" element={<Dashboard />} />
+            <Route path="/vision" element={<Dashboard />} />
+            <Route path="/automation" element={<Dashboard />} />
+            <Route path="/code-studio" element={<Dashboard />} />
+            <Route path="/memory" element={<Dashboard />} />
+            <Route path="/plugins" element={<Dashboard />} />
+            <Route path="/terminal" element={<Terminal />} />
+            <Route path="/files" element={<FileExplorer />} />
+            <Route path="/system-monitor" element={<SystemMonitor />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/splash" replace />} />
+        </Routes>
+      </SessionTracker>
       <Toaster
         position="bottom-right"
         toastOptions={{

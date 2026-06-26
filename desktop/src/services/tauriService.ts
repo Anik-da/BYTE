@@ -49,6 +49,20 @@ export const tauriService = {
   setAutostart: (enabled: boolean) => invokeCommand<void>("set_autostart", { enabled }),
   isAutostartEnabled: () => invokeCommand<boolean>("is_autostart_enabled"),
   setAlwaysOnTop: (enabled: boolean) => invokeCommand<void>("set_always_on_top", { enabled }),
+
+  // Authentication & Security Commands
+  registerUser: (args: Record<string, any>) => invokeCommand<any>("register_user", args),
+  loginUser: (args: Record<string, any>) => invokeCommand<any>("login_user", args),
+  verifyWindowsHello: (message: string) => invokeCommand<boolean>("verify_windows_hello", { message }),
+  voiceAuthEnroll: (userId: number, profileName: string, samplePath: string) =>
+    invokeCommand<boolean>("voice_auth_enroll", { userId, profileName, samplePath }),
+  voiceAuthVerify: (userId: number, currentSamplePath: string) =>
+    invokeCommand<boolean>("voice_auth_verify", { userId, currentSamplePath }),
+  faceAuthEnroll: (userId: number, profileName: string, imagePath: string) =>
+    invokeCommand<boolean>("face_auth_enroll", { userId, profileName, imagePath }),
+  faceAuthVerify: (userId: number, currentImagePath: string) =>
+    invokeCommand<boolean>("face_auth_verify", { userId, currentImagePath }),
+  listLocalUsers: () => invokeCommand<any[]>("list_local_users"),
 };
 
 

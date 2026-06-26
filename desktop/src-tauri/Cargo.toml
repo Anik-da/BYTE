@@ -21,4 +21,8 @@ hostname = "0.4"
 sysinfo = "0.30"
 rfd = "0.14"
 arboard = "3.4"
+rusqlite = { version = "0.31", features = ["bundled"] }
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
 
