@@ -9,6 +9,12 @@ use tauri::Manager;
 
 mod auth_db;
 mod auth_commands;
+mod db;
+mod repositories;
+mod memory;
+mod cache;
+mod services;
+mod commands;
 
 
 #[derive(Serialize)]
@@ -472,6 +478,11 @@ pub fn run() {
             });
             auth_commands::init_auth_db(app.handle());
 
+            // Initialize Module 04 unified database and core services
+            let app_dir = app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let services = services::Services::new(app_dir);
+            app.manage(commands::AppState { services });
+
             // Build Tray Icon Menu
             let quit_i = tauri::menu::MenuItemBuilder::with_id("quit", "Quit BYTE").build(app)?;
             let toggle_i = tauri::menu::MenuItemBuilder::with_id("toggle", "Show/Hide Window").build(app)?;
@@ -536,7 +547,22 @@ pub fn run() {
             auth_commands::voice_auth_verify,
             auth_commands::face_auth_enroll,
             auth_commands::face_auth_verify,
-            auth_commands::list_local_users
+            auth_commands::list_local_users,
+
+            // Core Database & Memory Engine Commands
+            commands::save_user,
+            commands::load_user,
+            commands::save_settings,
+            commands::load_settings,
+            commands::save_memory,
+            commands::load_memory,
+            commands::save_chat,
+            commands::load_chat,
+            commands::create_workspace,
+            commands::open_workspace,
+            commands::save_logs,
+            commands::load_logs,
+            commands::index_files_meta
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
