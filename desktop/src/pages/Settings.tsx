@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Settings as SettingsIcon, Palette, Gauge, Keyboard, Shield, Lock, Download, Info,
-  Check, Monitor, Moon, Sun
+  Check, Monitor, Moon, Sun, Mic
 } from "lucide-react";
 import { useAppStore } from "../stores/useAppStore";
 import { useThemeStore } from "../stores/useThemeStore";
@@ -14,12 +14,14 @@ import { cn } from "../utils/cn";
 import { tauriService } from "../services/tauriService";
 import { SecuritySettings } from "../components/settings/SecuritySettings";
 import { PermissionSettings } from "../components/settings/PermissionSettings";
+import { VoiceService, VoiceConfig } from "../services/voiceService";
 
 const tabIcons: Record<string, React.ReactNode> = {
   Settings: <SettingsIcon size={18} />, Palette: <Palette size={18} />,
   Gauge: <Gauge size={18} />, Keyboard: <Keyboard size={18} />,
   Shield: <Shield size={18} />, Lock: <Lock size={18} />,
   Download: <Download size={18} />, Info: <Info size={18} />,
+  Mic: <Mic size={18} />,
 };
 
 export function Settings() {
@@ -40,10 +42,40 @@ export function Settings() {
 
 
 
+  const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>({
+    microphone_id: "default",
+    speaker_id: "default",
+    wake_word_enabled: true,
+    wake_word_sensitivity: 0.5,
+    always_listening: false,
+    push_to_talk: true,
+    language: "en-US",
+    voice_speed: 1.0,
+    voice_pitch: 1.0,
+    voice_type: "female",
+    noise_reduction: true,
+    voice_auth_enabled: false,
+  });
+
   useEffect(() => {
     setCurrentPageTitle("Settings");
     loadAutostart();
+    loadVoiceSettings();
   }, [setCurrentPageTitle]);
+
+  async function loadVoiceSettings() {
+    try {
+      const cfg = await VoiceService.loadSettings();
+      setVoiceConfig(cfg);
+    } catch (e) {
+      console.warn("Failed to load voice configuration", e);
+    }
+  }
+
+  const handleSaveVoiceConfig = async (updated: VoiceConfig) => {
+    setVoiceConfig(updated);
+    await VoiceService.saveSettings(updated);
+  };
 
   async function loadAutostart() {
     try {
@@ -210,6 +242,97 @@ export function Settings() {
 
       case "permissions":
         return <PermissionSettings />;
+
+      case "voice":
+        return (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Speech Engine Attributes</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-[var(--text-muted)]">Voice Style</label>
+                  <select
+                    value={voiceConfig.voice_type}
+                    onChange={(e) => handleSaveVoiceConfig({ ...voiceConfig, voice_type: e.target.value })}
+                    className="bg-[var(--bg-glass-heavy)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                  >
+                    <option value="female">Natural Female Voice</option>
+                    <option value="male">Natural Male Voice</option>
+                    <option value="natural">Synthesized Default</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-[var(--text-muted)]">Synthesizer Language</label>
+                  <select
+                    value={voiceConfig.language}
+                    onChange={(e) => handleSaveVoiceConfig({ ...voiceConfig, language: e.target.value })}
+                    className="bg-[var(--bg-glass-heavy)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] cursor-pointer"
+                  >
+                    <option value="en-US">English (United States)</option>
+                    <option value="es-ES">Spanish (Spain)</option>
+                    <option value="fr-FR">French (France)</option>
+                    <option value="de-DE">German (Germany)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Playback Modifiers</h3>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[var(--text-muted)]">Speech Synthesis Speed</span>
+                    <span className="text-[var(--accent)] font-semibold">{voiceConfig.voice_speed.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={voiceConfig.voice_speed}
+                    onChange={(e) => handleSaveVoiceConfig({ ...voiceConfig, voice_speed: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-[var(--border-default)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-[var(--text-muted)]">Speech Pitch</span>
+                    <span className="text-[var(--accent)] font-semibold">{voiceConfig.voice_pitch.toFixed(1)}x</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.0"
+                    step="0.1"
+                    value={voiceConfig.voice_pitch}
+                    onChange={(e) => handleSaveVoiceConfig({ ...voiceConfig, voice_pitch: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-[var(--border-default)] rounded-lg appearance-none cursor-pointer accent-[var(--accent)]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-[var(--border-default)]/30">
+              <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Advanced Filters</h3>
+              <div className="space-y-4">
+                <Toggle
+                  checked={voiceConfig.noise_reduction}
+                  onChange={(val) => handleSaveVoiceConfig({ ...voiceConfig, noise_reduction: val })}
+                  label="Dynamic Noise Reduction"
+                  description="Filter ambient fan noise and mic static waves"
+                />
+                <Toggle
+                  checked={voiceConfig.voice_auth_enabled}
+                  onChange={(val) => handleSaveVoiceConfig({ ...voiceConfig, voice_auth_enabled: val })}
+                  label="Biometric Voiceprint Verification"
+                  description="Enforce authentication verification matching owner signature"
+                />
+              </div>
+            </div>
+          </div>
+        );
 
       case "about":
         return (

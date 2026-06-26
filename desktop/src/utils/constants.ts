@@ -21,7 +21,7 @@ export type AccentColor = (typeof ACCENT_COLORS)[number]["value"];
 export const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard", icon: "LayoutDashboard", path: "/" },
   { id: "ai-chat", label: "AI Chat", icon: "MessageSquare", path: "/ai-chat" },
-  { id: "voice", label: "Voice", icon: "Mic", path: "/voice", comingSoon: true },
+  { id: "voice", label: "Voice", icon: "Mic", path: "/voice" },
   { id: "vision", label: "Vision", icon: "Eye", path: "/vision", comingSoon: true },
   { id: "automation", label: "Automation", icon: "Zap", path: "/automation", comingSoon: true },
   { id: "code-studio", label: "Code Studio", icon: "Code", path: "/code-studio", comingSoon: true },
@@ -39,6 +39,7 @@ export const SETTINGS_TABS = [
   { id: "shortcuts", label: "Shortcuts", icon: "Keyboard" },
   { id: "security", label: "Security & Auth", icon: "Shield" },
   { id: "permissions", label: "Permissions", icon: "Lock" },
+  { id: "voice", label: "Voice Engine", icon: "Mic" },
   { id: "updates", label: "Updates", icon: "Download" },
   { id: "about", label: "About BYTE", icon: "Info" },
 ] as const;

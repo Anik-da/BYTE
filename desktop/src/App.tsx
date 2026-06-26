@@ -9,6 +9,7 @@ import { FirstLaunchWizard } from "./pages/FirstLaunchWizard";
 import { LockScreen } from "./pages/LockScreen";
 import { Dashboard } from "./pages/Dashboard";
 import { Chat } from "./pages/Chat";
+import { VoiceDashboard } from "./pages/VoiceDashboard";
 import { Settings } from "./pages/Settings";
 import { Profile } from "./pages/Profile";
 import { Terminal } from "./pages/Terminal";
@@ -145,7 +146,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/ai-chat" element={<Chat />} />
-            <Route path="/voice" element={<Dashboard />} />
+            <Route path="/voice" element={<VoiceDashboard />} />
             <Route path="/vision" element={<Dashboard />} />
             <Route path="/automation" element={<Dashboard />} />
             <Route path="/code-studio" element={<Dashboard />} />

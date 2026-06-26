@@ -16,6 +16,7 @@ mod cache;
 mod services;
 mod commands;
 mod ai;
+mod voice;
 
 
 #[derive(Serialize)]
@@ -568,7 +569,16 @@ pub fn run() {
             // AI Core Commands
             ai::ai_chat_complete,
             ai::ai_chat_stream,
-            ai::test_provider_connection
+            ai::test_provider_connection,
+
+            // Voice Engine Commands
+            voice::speak_text,
+            voice::get_audio_devices,
+            voice::test_microphone_level,
+            voice::start_voice_listening,
+            voice::stop_voice_listening,
+            voice::save_voice_settings,
+            voice::load_voice_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
