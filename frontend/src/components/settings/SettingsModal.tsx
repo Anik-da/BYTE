@@ -173,10 +173,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setAiProvider(e.target.value)}
                     className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
                   >
-                    <option value="groq">Groq Cloud (Fast LLM)</option>
-                    <option value="ollama">Ollama (Local Offline LLM)</option>
-                    <option value="openai">OpenAI GPT-4</option>
-                    <option value="gemini">Google Gemini 1.5</option>
+                    <option value="ollama">Ollama (Local Offline LLM - 100% Free)</option>
+                    <option value="groq">Groq Cloud (Free Developer Tier)</option>
                   </select>
                 </div>
 

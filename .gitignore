@@ -1,0 +1,23 @@
+# Secrets & Environment Configuration
+.env
+.env.local
+.env.*.local
+*.env
+
+# Dependencies & Build Output
+node_modules/
+dist/
+build/
+target/
+*.exe
+*.msi
+*.zip
+
+# Logs & Databases
+*.log
+byte_memory.db
+database/*.db
+
+# OS Files
+.DS_Store
+Thumbs.db
