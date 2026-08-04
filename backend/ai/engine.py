@@ -63,31 +63,53 @@ class AIEngine:
         if not settings:
             settings = get_settings()
 
+        # Build context messages from past SQLite history
+        from backend.memory.db import get_history
+        history = get_history(limit=10)
+        
+        messages = [
+            {
+                "role": "system",
+                "content": "You are BYTE (Beyond Your Tactical Envelope), an advanced natural-language tactical AI desktop assistant. Always remember past context from previous turns in the conversation to provide coherent, helpful, and contextual responses."
+            }
+        ]
+        
+        for msg in history:
+            role = "assistant" if msg.get("role") in ["byte", "assistant"] else "user"
+            messages.append({"role": role, "content": msg.get("content", "")})
+            
+        messages.append({"role": "user", "content": prompt})
+
         # Local AI First
         provider = settings.get("ai_provider", "ollama")
-        
+        groq_model = settings.get("groq_model", "llama-3.3-70b-versatile")
+        if groq_model in ["groq/compound", "groq/compound-mini", "minimaxai/minimax-m2.7"]:
+            groq_model = "llama-3.3-70b-versatile"
+
         if provider == "ollama":
-            response = await self._query_ollama(prompt, settings.get("ollama_model", "llama3"))
+            response = await self._query_ollama(messages, settings.get("ollama_model", "llama3"))
             if not response.startswith("[Ollama Unavailable]"):
                 return response
             
             # Local Ollama is offline; automatically fall back to Groq Cloud
-            groq_resp = await self._query_groq(prompt, settings.get("groq_model", "groq/compound"))
+            groq_resp = await self._query_groq(messages, groq_model)
             if not groq_resp.startswith("[Groq"):
                 return f"[Local AI -> Cloud Fallback] {groq_resp}"
             return response
             
         elif provider == "groq":
-            return await self._query_groq(prompt, settings.get("groq_model", "groq/compound"))
+            return await self._query_groq(messages, groq_model)
         else:
             return f"[BYTE System] AI provider '{provider}' selected. Standing by for inference."
 
-    async def _query_ollama(self, prompt: str, model: str) -> str:
+    async def _query_ollama(self, messages: list, model: str) -> str:
         try:
+            # Build unified prompt from messages for Ollama generate API
+            prompt_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in messages])
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.post("http://localhost:11434/api/generate", json={
                     "model": model,
-                    "prompt": prompt,
+                    "prompt": prompt_str,
                     "stream": False
                 })
                 if res.status_code == 200:
@@ -96,7 +118,7 @@ class AIEngine:
         except Exception as e:
             return f"[Ollama Unavailable] Could not connect to local Ollama instance on port 11434 ({str(e)})"
 
-    async def _query_groq(self, prompt: str, model: str) -> str:
+    async def _query_groq(self, messages: list, model: str) -> str:
         api_key = os.environ.get("VITE_GROQ_API_KEY") or os.environ.get("GROQ_API_KEY", "")
         if not api_key:
             return "[BYTE System] Groq API key is not set. Please update AI Settings."
@@ -108,10 +130,7 @@ class AIEngine:
                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                     json={
                         "model": model,
-                        "messages": [
-                            {"role": "system", "content": "You are BYTE, an advanced AI desktop assistant. Keep responses helpful and concise."},
-                            {"role": "user", "content": prompt}
-                        ],
+                        "messages": messages,
                         "max_tokens": 512
                     }
                 )

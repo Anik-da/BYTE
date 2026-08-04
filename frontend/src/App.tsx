@@ -17,7 +17,7 @@ import { parseCommand } from '@/lib/commandEngine';
 import { askGroq, type GroqModel } from '@/lib/groq';
 import { FileNavigator } from '@/components/FileNavigator';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { sendDesktopCommand } from '@/lib/desktopApi';
+import { sendDesktopCommand, fetchConversationHistory } from '@/lib/desktopApi';
 import { UpdateDialog } from '@/components/UpdateDialog';
 import { checkForUpdate } from '@/lib/updater';
 import { Update } from '@tauri-apps/plugin-updater';
@@ -64,20 +64,25 @@ export default function App() {
     });
   }, [booted]);
 
-  // Greeting after boot
+  // Load conversation history after boot
   useEffect(() => {
     if (!booted) return;
-    const greeting: Message = {
-      id: makeId(),
-      role: 'byte',
-      text: 'BYTE online. All systems are operational and running at full capacity. How may I assist you?',
-      time: nowTime(),
-    };
-    setMessages([greeting]);
-    if (!muted) {
-      const t = setTimeout(() => speech.speak(greeting.text), 400);
-      return () => clearTimeout(t);
-    }
+    fetchConversationHistory().then((history) => {
+      if (history && history.length > 0) {
+        setMessages(history);
+      } else {
+        const greeting: Message = {
+          id: makeId(),
+          role: 'byte',
+          text: 'BYTE online. All systems operational. How may I assist you?',
+          time: nowTime(),
+        };
+        setMessages([greeting]);
+        if (!muted) {
+          setTimeout(() => speech.speak(greeting.text), 400);
+        }
+      }
+    });
   }, [booted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleResult = useCallback(

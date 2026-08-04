@@ -1,0 +1,11 @@
+{
+  "version": "1.1.0",
+  "notes": "BYTE Assistant v1.1.0 Release featuring voice input, conversational memory, and desktop automation.",
+  "pub_date": "2026-08-04T12:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "",
+      "url": "https://github.com/Anik-da/BYTE/releases/download/v1.1.0/BYTE_Assistant_1.1.0_x64-setup.exe"
+    }
+  }
+}

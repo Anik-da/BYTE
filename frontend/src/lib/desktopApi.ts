@@ -81,3 +81,21 @@ export async function saveBackendSettings(settings: Record<string, any>): Promis
     return false;
   }
 }
+
+export async function fetchConversationHistory(): Promise<Array<{ id: string; role: 'user' | 'byte'; text: string; time: string }>> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/history?limit=50`);
+    if (res.ok) {
+      const rows = await res.json();
+      return rows.map((r: any) => ({
+        id: String(r.id),
+        role: r.role === 'user' ? 'user' : 'byte',
+        text: r.content,
+        time: r.timestamp ? new Date(r.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'LOGGED',
+      }));
+    }
+  } catch {
+    // Return empty fallback array
+  }
+  return [];
+}

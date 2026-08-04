@@ -61,7 +61,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       }
     } catch (e: any) {
       setCheckingUpdate(false);
-      setUpdateStatusText('BYTE v1.0.0 is running the latest release.');
+      setUpdateStatusText(`BYTE v${CURRENT_APP_VERSION} is running the latest release.`);
     }
   };
 
@@ -280,7 +280,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <Sparkles className="h-4 w-4" /> BYTE Mission Control
                       </div>
                       <div className="hud-mono text-[10px] text-hud-red/60 mt-0.5">
-                        Installed Version: <span className="text-hud-red font-bold">1.0.0</span>
+                        Installed Version: <span className="text-hud-red font-bold">{CURRENT_APP_VERSION}</span>
                       </div>
                     </div>
                     <button
