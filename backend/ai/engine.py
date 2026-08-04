@@ -15,13 +15,62 @@ class AIEngine:
         """
         text_lower = text.lower().strip()
         
-        # Open Application Intent (dynamic for any application name)
-        if re.search(r'\b(open|launch|run|start)\s+(website|url|site|app|application|program|software)?\s*(.+)', text_lower):
-            match = re.search(r'\b(open|launch|run|start)\s+(website|url|site|app|application|program|software)?\s*(.+)', text_lower)
+        # 1. YouTube Intent
+        if "youtube" in text_lower or "yt" in text_lower:
+            query = re.sub(r'^(open|launch)?\s*(youtube|yt)\s*(and\s+)?(play|search|find|watch)?\s*', '', text_lower)
+            query = re.sub(r'\s+on\s+(youtube|yt)$', '', query).strip()
+            target = f"https://www.youtube.com/results?search_query={query}" if query else "https://www.youtube.com"
+            return {
+                "intent": "open_website",
+                "target": target,
+                "requires_confirmation": False
+            }
+
+        # 2. Spotify Intent
+        if "spotify" in text_lower:
+            query = re.sub(r'^(open|launch)?\s*spotify\s*(and\s+)?(play|listen to|search)?\s*', '', text_lower)
+            query = re.sub(r'\s+on\s+spotify$', '', query).strip()
+            if query:
+                return {
+                    "intent": "open_website",
+                    "target": f"https://open.spotify.com/search/{query}",
+                    "requires_confirmation": False
+                }
+            return {
+                "intent": "open_application",
+                "target": "spotify",
+                "requires_confirmation": False
+            }
+
+        # 3. Known Web Destinations (LinkedIn, GitHub, Google, Twitter, Reddit, Instagram)
+        web_sites = {
+            "linkedin": "https://www.linkedin.com",
+            "github": "https://www.github.com",
+            "google": "https://www.google.com",
+            "twitter": "https://x.com",
+            "x.com": "https://x.com",
+            "instagram": "https://www.instagram.com",
+            "reddit": "https://www.reddit.com",
+            "gmail": "https://mail.google.com"
+        }
+        
+        for name, url in web_sites.items():
+            if re.search(rf'\b{name}\b', text_lower):
+                return {
+                    "intent": "open_website",
+                    "target": url,
+                    "requires_confirmation": False
+                }
+
+        # 4. Open Application Intent (Notepad, VS Code, Calc, Chrome, etc.)
+        if re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower):
+            match = re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower)
             raw_target = match.group(3).strip() if match else ""
-            target = re.sub(r'^(website|url|site|app|application|program|software)\s+', '', raw_target, flags=re.IGNORECASE).strip()
             
-            # Check if target is a website URL or web search keyword
+            # Clean compound commands like "open notepad and write..." -> target "notepad"
+            target = re.split(r'\s+and\s+', raw_target)[0].strip()
+            target = re.sub(r'^(website|url|site|app|application|program|software)\s+', '', target, flags=re.IGNORECASE).strip()
+            
             if target.startswith("http") or target.endswith((".com", ".org", ".net", ".io")) or (" " not in target and "." in target):
                 return {
                     "intent": "open_website",
@@ -35,7 +84,7 @@ class AIEngine:
                 "requires_confirmation": False
             }
             
-        # Open Website / Search Intent
+        # 5. Open Website / Search Intent
         if re.search(r'\b(go to|search|google|visit)\s+(.+)', text_lower):
             match = re.search(r'\b(go to|search|google|visit)\s+(.+)', text_lower)
             target = match.group(2).strip() if match else "google.com"
@@ -45,7 +94,7 @@ class AIEngine:
                 "requires_confirmation": False
             }
 
-        # System Control Intent
+        # 6. System Control Intent
         if re.search(r'\b(lock pc|lock computer|shutdown|restart|reboot|turn off|log off)\b', text_lower):
             return {
                 "intent": "system_command",

@@ -96,8 +96,8 @@ export default function App() {
 
       const result = parseCommand(userText);
 
-      if (result.intent !== 'unknown') {
-        // Handle local simulation commands locally
+      // Handle UI-only simulation commands (clear_log, scan, lockdown, reboot)
+      if (['clear_log', 'scan', 'lockdown', 'decrypt', 'reboot'].includes(result.action || '')) {
         const byteMsg: Message = {
           id: makeId(),
           role: 'byte',
@@ -106,12 +106,7 @@ export default function App() {
         };
         setMessages((prev) => [...prev, userMsg, byteMsg]);
 
-        if (result.action === 'run_diagnostics') {
-          setShowDiagnostics(true);
-        }
-        if (result.action === 'clear_log') {
-          setMessages([byteMsg]);
-        }
+        if (result.action === 'clear_log') setMessages([byteMsg]);
         if (result.action === 'scan') {
           setScanActive(true);
           setTimeout(() => setScanActive(false), 4000);
@@ -131,64 +126,64 @@ export default function App() {
             setMessages([]);
           }, 1500);
         }
-        if (result.action === 'open_file') {
-          const fid = (result.data as { fileId?: string | null })?.fileId ?? null;
-          if (fid) setActiveFileId(fid);
-
-          const url = (result.data as { url?: string })?.url;
-          if (url) {
-            window.open(url, '_blank');
-          }
-
-          const app = (result.data as { app?: string })?.app;
-          if (app) {
-            sendDesktopCommand(`open app ${app}`).catch(() => {});
-          }
-        }
 
         if (!muted) {
           setTimeout(() => speech.speak(result.response), 250);
         }
-      } else {
-        // Send command to local FastAPI automation backend
-        setMessages((prev) => [...prev, userMsg]);
-        setLoading(true);
-        try {
-          const desktopRes = await sendDesktopCommand(userText);
-          let responseText = desktopRes.response;
-          
-          if (desktopRes.intent?.intent === 'fallback') {
-            responseText = await askGroq(userText, selectedModel);
-          }
+        return;
+      }
 
-          const byteMsg: Message = {
-            id: makeId(),
-            role: 'byte',
-            text: responseText,
-            time: nowTime(),
-          };
-          setMessages((prev) => [...prev, byteMsg]);
-          if (!muted) {
-            speech.speak(responseText);
-          }
-        } catch (err: any) {
-          const errMsg = err.message || "Failed to connect to desktop server.";
-          const byteMsg: Message = {
-            id: makeId(),
-            role: 'byte',
-            text: `[SYSTEM ALERT] ${errMsg}`,
-            time: nowTime(),
-          };
-          setMessages((prev) => [...prev, byteMsg]);
-          if (!muted) {
-            speech.speak("Unable to process desktop instruction.");
-          }
-        } finally {
-          setLoading(false);
+      // Send all real automation & AI queries to local FastAPI backend
+      setMessages((prev) => [...prev, userMsg]);
+      setLoading(true);
+      try {
+        const desktopRes = await sendDesktopCommand(userText);
+        let responseText = desktopRes.response;
+        
+        if (desktopRes.intent?.intent === 'fallback') {
+          responseText = await askGroq(userText, selectedModel);
         }
+
+        const byteMsg: Message = {
+          id: makeId(),
+          role: 'byte',
+          text: responseText,
+          time: nowTime(),
+        };
+        setMessages((prev) => [...prev, byteMsg]);
+
+        if (!muted) {
+          setTimeout(() => speech.speak(responseText), 250);
+        }
+      } catch (err) {
+        console.error('Desktop command execution error:', err);
+        // Fallback to Groq cloud if backend connection fails
+        try {
+          const cloudResp = await askGroq(userText, selectedModel);
+          const byteMsg: Message = {
+            id: makeId(),
+            role: 'byte',
+            text: cloudResp,
+            time: nowTime(),
+          };
+          setMessages((prev) => [...prev, byteMsg]);
+          if (!muted) {
+            setTimeout(() => speech.speak(cloudResp), 250);
+          }
+        } catch {
+          const byteMsg: Message = {
+            id: makeId(),
+            role: 'byte',
+            text: 'System command failed to execute. Verify backend engine is active on localhost:8000.',
+            time: nowTime(),
+          };
+          setMessages((prev) => [...prev, byteMsg]);
+        }
+      } finally {
+        setLoading(false);
       }
     },
-    [muted, speech, selectedModel],
+    [muted, selectedModel]
   );
 
   // When listening finishes, process the transcript
