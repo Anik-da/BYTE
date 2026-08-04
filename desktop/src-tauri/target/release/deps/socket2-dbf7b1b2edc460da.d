@@ -1,0 +1,11 @@
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\socket2-dbf7b1b2edc460da.d: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockaddr.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\socket.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockref.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sys\windows.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libsocket2-dbf7b1b2edc460da.rlib: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockaddr.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\socket.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockref.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sys\windows.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libsocket2-dbf7b1b2edc460da.rmeta: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockaddr.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\socket.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockref.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sys\windows.rs
+
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\lib.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockaddr.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\socket.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sockref.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\socket2-0.6.5\src\sys\windows.rs:

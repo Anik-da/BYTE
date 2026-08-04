@@ -39,7 +39,7 @@ export default function App() {
   const [scanActive, setScanActive] = useState(false);
   const [lockdownActive, setLockdownActive] = useState(false);
   const [decryptActive, setDecryptActive] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<GroqModel>('groq/compound');
+  const [selectedModel, setSelectedModel] = useState<GroqModel>('llama-3.3-70b-versatile');
   const [loading, setLoading] = useState(false);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -128,7 +128,18 @@ export default function App() {
         }
         if (result.action === 'open_file') {
           const fid = (result.data as { fileId?: string | null })?.fileId ?? null;
-          setActiveFileId(fid);
+          if (fid) setActiveFileId(fid);
+
+          const url = (result.data as { url?: string })?.url;
+          if (url) {
+            window.open(url, '_blank');
+            sendDesktopCommand(`open website ${url}`).catch(() => {});
+          }
+
+          const app = (result.data as { app?: string })?.app;
+          if (app) {
+            sendDesktopCommand(`open app ${app}`).catch(() => {});
+          }
         }
 
         if (!muted) {

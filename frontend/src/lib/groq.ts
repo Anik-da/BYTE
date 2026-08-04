@@ -1,4 +1,4 @@
-export type GroqModel = 'groq/compound' | 'groq/compound-mini' | 'minimaxai/minimax-m2.7';
+export type GroqModel = 'llama-3.3-70b-versatile' | 'llama3-70b-8192' | 'llama3-8b-8192' | 'mixtral-8x7b-32768';
 
 export async function askGroq(prompt: string, model: GroqModel): Promise<string> {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;

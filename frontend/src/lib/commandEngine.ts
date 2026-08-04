@@ -252,12 +252,51 @@ export function parseCommand(raw: string): CommandResult {
     };
   }
 
-  // Search
-  if (/(search|look up|google|find|who is|what is a|where is)/.test(text)) {
+  // Open YouTube / Websites / Applications
+  if (/(open|launch)\s+(youtube|yt)/.test(text)) {
     return {
       intent: 'search',
-      response:
-        'External search is unavailable in this isolated environment. I can, however, attempt to answer from my own knowledge base.',
+      response: 'Opening YouTube in your primary browser...',
+      action: 'open_file',
+      data: { url: 'https://www.youtube.com' }
+    };
+  }
+
+  if (/(open|launch)\s+(google|browser|chrome|edge)/.test(text)) {
+    return {
+      intent: 'search',
+      response: 'Opening web browser...',
+      action: 'open_file',
+      data: { url: 'https://www.google.com' }
+    };
+  }
+
+  if (/(open|launch)\s+(github)/.test(text)) {
+    return {
+      intent: 'search',
+      response: 'Opening GitHub repository dashboard...',
+      action: 'open_file',
+      data: { url: 'https://github.com' }
+    };
+  }
+
+  if (/(open|launch)\s+(vs\s*code|code|editor)/.test(text)) {
+    return {
+      intent: 'search',
+      response: 'Launching Visual Studio Code...',
+      action: 'open_file',
+      data: { app: 'code' }
+    };
+  }
+
+  // Search
+  if (/(search|look up|google|find|who is|what is a|where is)/.test(text)) {
+    const searchQuery = input.replace(/^(search|look up|google|find)\s+/i, '');
+    return {
+      intent: 'search',
+      response: `Searching Google for: ${searchQuery}`,
+      action: 'open_file',
+      data: { url: `https://www.google.com/search?q=${encodeURIComponent(searchQuery)}` }
     };
   }
 

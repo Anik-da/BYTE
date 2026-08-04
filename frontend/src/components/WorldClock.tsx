@@ -40,9 +40,9 @@ export function WorldClock() {
             hour12: false,
           });
           return (
-            <div key={c.city} className="border border-hud-red/20 bg-hud-red/5 px-2 py-1">
-              <div className="hud-text text-[9px] uppercase text-hud-red/50">{c.short}</div>
-              <div className="hud-mono text-sm text-hud-red">{time}</div>
+            <div key={c.city} className="border border-hud-red/20 bg-hud-red/5 p-1.5 overflow-hidden">
+              <div className="hud-text text-[9px] uppercase text-hud-red/60">{c.short}</div>
+              <div className="hud-mono text-[11px] font-semibold tracking-tight text-hud-red truncate">{time}</div>
             </div>
           );
         })}
