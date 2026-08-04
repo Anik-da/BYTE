@@ -71,9 +71,9 @@ export function ConversationLog({
             onChange={(e) => setSelectedModel(e.target.value)}
             className="hud-mono bg-slate-950/80 border border-hud-red/40 text-hud-red text-[9px] uppercase tracking-wider px-2 py-0.5 outline-none cursor-pointer focus:border-hud-red/85"
           >
-            <option value="llama-3.1-8b-instant" className="bg-slate-950">LLaMA 3.1 8B Instant (Fast)</option>
-            <option value="llama-3.3-70b-versatile" className="bg-slate-950">LLaMA 3.3 70B Versatile</option>
-            <option value="llama3-70b-8192" className="bg-slate-950">LLaMA 3 70B 8192</option>
+            <option value="groq/compound" className="bg-slate-950">GROQ COMPOUND</option>
+            <option value="groq/compound-mini" className="bg-slate-950">GROQ COMPOUND MINI</option>
+            <option value="minimaxai/minimax-m2.7" className="bg-slate-950">MINIMAX M2.7</option>
           </select>
           <span className="hud-mono text-[10px] text-hud-red/50">
             {messages.length} {messages.length === 1 ? 'ENTRY' : 'ENTRIES'}

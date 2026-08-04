@@ -1,4 +1,4 @@
-export type GroqModel = 'llama-3.1-8b-instant' | 'llama-3.3-70b-versatile' | 'llama3-70b-8192';
+export type GroqModel = 'groq/compound' | 'groq/compound-mini' | 'minimaxai/minimax-m2.7';
 
 export async function askGroq(prompt: string, model: GroqModel): Promise<string> {
   const apiKey = import.meta.env.VITE_GROQ_API_KEY;
@@ -11,6 +11,10 @@ export async function askGroq(prompt: string, model: GroqModel): Promise<string>
 
   if (apiKey.startsWith("sk-or-")) {
     endpoint = "https://openrouter.ai/api/v1/chat/completions";
+  } else {
+    // Pass user-selected model directly; fallback map for native Groq API if needed
+    if (model === 'groq/compound-mini') targetModel = 'llama-3.1-8b-instant';
+    else if (model === 'groq/compound' || model === 'minimaxai/minimax-m2.7') targetModel = 'llama-3.3-70b-versatile';
   }
 
   const response = await fetch(endpoint, {

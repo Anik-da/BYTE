@@ -39,7 +39,7 @@ export default function App() {
   const [scanActive, setScanActive] = useState(false);
   const [lockdownActive, setLockdownActive] = useState(false);
   const [decryptActive, setDecryptActive] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<GroqModel>('llama-3.1-8b-instant');
+  const [selectedModel, setSelectedModel] = useState<GroqModel>('groq/compound');
   const [loading, setLoading] = useState(false);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
