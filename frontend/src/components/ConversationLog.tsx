@@ -22,6 +22,9 @@ interface ConversationLogProps {
   speechSupported: boolean;
   selectedModel: string;
   setSelectedModel: (m: any) => void;
+  aiProvider?: 'ollama' | 'groq';
+  ollamaModel?: string;
+  onUpdateModelSetting?: (provider: 'ollama' | 'groq', model: string) => void;
   loading: boolean;
 }
 
@@ -39,6 +42,9 @@ export function ConversationLog({
   speechSupported,
   selectedModel,
   setSelectedModel,
+  aiProvider = 'groq',
+  ollamaModel = 'llama3',
+  onUpdateModelSetting,
   loading,
 }: ConversationLogProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -54,6 +60,21 @@ export function ConversationLog({
     }
   };
 
+  const handleSelectChange = (val: string) => {
+    if (val === 'switch-groq') {
+      onUpdateModelSetting?.('groq', 'groq/compound');
+    } else if (val === 'switch-ollama') {
+      onUpdateModelSetting?.('ollama', 'llama3');
+    } else if (aiProvider === 'ollama') {
+      onUpdateModelSetting?.('ollama', val);
+    } else {
+      setSelectedModel(val);
+      onUpdateModelSetting?.('groq', val);
+    }
+  };
+
+  const currentSelectValue = aiProvider === 'ollama' ? ollamaModel : selectedModel;
+
   return (
     <div className="hud-panel hud-corner clip-notch flex h-full flex-col p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -67,13 +88,26 @@ export function ConversationLog({
             </span>
           )}
           <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
+            value={currentSelectValue}
+            onChange={(e) => handleSelectChange(e.target.value)}
             className="hud-mono bg-slate-950/80 border border-hud-red/40 text-hud-red text-[9px] uppercase tracking-wider px-2 py-0.5 outline-none cursor-pointer focus:border-hud-red/85"
           >
-            <option value="groq/compound" className="bg-slate-950">GROQ COMPOUND</option>
-            <option value="groq/compound-mini" className="bg-slate-950">GROQ COMPOUND MINI</option>
-            <option value="minimaxai/minimax-m2.7" className="bg-slate-950">MINIMAX M2.7</option>
+            {aiProvider === 'ollama' ? (
+              <>
+                <option value="llama3" className="bg-slate-950">OLLAMA: LLAMA 3 (8B)</option>
+                <option value="qwen2" className="bg-slate-950">OLLAMA: QWEN 2 (7B)</option>
+                <option value="gemma2" className="bg-slate-950">OLLAMA: GEMMA 2 (9B)</option>
+                <option value="deepseek-coder" className="bg-slate-950">OLLAMA: DEEPSEEK CODER</option>
+                <option value="switch-groq" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO GROQ CLOUD</option>
+              </>
+            ) : (
+              <>
+                <option value="groq/compound" className="bg-slate-950">GROQ COMPOUND</option>
+                <option value="groq/compound-mini" className="bg-slate-950">GROQ COMPOUND MINI</option>
+                <option value="minimaxai/minimax-m2.7" className="bg-slate-950">MINIMAX M2.7</option>
+                <option value="switch-ollama" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO LOCAL OLLAMA</option>
+              </>
+            )}
           </select>
           <span className="hud-mono text-[10px] text-hud-red/50">
             {messages.length} {messages.length === 1 ? 'ENTRY' : 'ENTRIES'}

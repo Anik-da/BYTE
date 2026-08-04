@@ -17,7 +17,7 @@ import { parseCommand } from '@/lib/commandEngine';
 import { askGroq, type GroqModel } from '@/lib/groq';
 import { FileNavigator } from '@/components/FileNavigator';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { sendDesktopCommand, fetchConversationHistory } from '@/lib/desktopApi';
+import { sendDesktopCommand, fetchConversationHistory, fetchBackendSettings, saveBackendSettings } from '@/lib/desktopApi';
 import { UpdateDialog } from '@/components/UpdateDialog';
 import { checkForUpdate } from '@/lib/updater';
 import { Update } from '@tauri-apps/plugin-updater';
@@ -50,6 +50,39 @@ export default function App() {
 
   const speech = useSpeech();
   const pendingTranscriptRef = useRef(false);
+
+  const [aiProvider, setAiProvider] = useState<'ollama' | 'groq'>('groq');
+  const [ollamaModel, setOllamaModel] = useState<string>('llama3');
+
+  const syncSettings = useCallback(() => {
+    fetchBackendSettings().then((s: Record<string, any>) => {
+      if (s) {
+        if (s.ai_provider) setAiProvider(s.ai_provider as any);
+        if (s.ollama_model) setOllamaModel(s.ollama_model);
+        if (s.groq_model) setSelectedModel(s.groq_model as GroqModel);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (booted) syncSettings();
+  }, [booted, syncSettings]);
+
+  const handleUpdateModelSetting = useCallback(async (provider: 'ollama' | 'groq', model: string) => {
+    setAiProvider(provider);
+    if (provider === 'ollama') setOllamaModel(model);
+    else setSelectedModel(model as GroqModel);
+
+    try {
+      await saveBackendSettings({
+        ai_provider: provider,
+        ollama_model: provider === 'ollama' ? model : ollamaModel,
+        groq_model: provider === 'groq' ? model : selectedModel,
+      });
+    } catch (err) {
+      console.warn("Failed to persist model setting:", err);
+    }
+  }, [ollamaModel, selectedModel]);
 
   // Check for updates after boot
   useEffect(() => {
@@ -290,7 +323,10 @@ export default function App() {
 
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => {
+          setIsSettingsOpen(false);
+          syncSettings();
+        }}
       />
 
       <UpdateDialog
@@ -390,6 +426,9 @@ export default function App() {
                   speechSupported={speech.supported}
                   selectedModel={selectedModel}
                   setSelectedModel={setSelectedModel}
+                  aiProvider={aiProvider}
+                  ollamaModel={ollamaModel}
+                  onUpdateModelSetting={handleUpdateModelSetting}
                   loading={loading}
                 />
               </div>
@@ -411,6 +450,9 @@ export default function App() {
                 speechSupported={speech.supported}
                 selectedModel={selectedModel}
                 setSelectedModel={setSelectedModel}
+                aiProvider={aiProvider}
+                ollamaModel={ollamaModel}
+                onUpdateModelSetting={handleUpdateModelSetting}
                 loading={loading}
               />
             </div>
