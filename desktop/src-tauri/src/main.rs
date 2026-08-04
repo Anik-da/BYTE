@@ -17,7 +17,7 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn get_app_version() -> String {
-    "1.0.0".to_string()
+    "1.1.0".to_string()
 }
 
 #[tauri::command]
@@ -50,7 +50,18 @@ fn open_native_app(target: String) -> Result<String, String> {
     }
 }
 
+fn spawn_backend_service() {
+    #[cfg(target_os = "windows")]
+    {
+        let _ = Command::new("powershell")
+            .args(["-Command", "Start-Process python -ArgumentList 'backend/main.py' -WindowStyle Hidden"])
+            .spawn();
+    }
+}
+
 fn main() {
+    spawn_backend_service();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
