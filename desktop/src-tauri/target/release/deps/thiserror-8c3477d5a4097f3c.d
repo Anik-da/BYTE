@@ -1,0 +1,14 @@
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\thiserror-8c3477d5a4097f3c.d: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\aserror.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\display.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\var.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\private.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\thiserror-17707e13e772697c\out/private.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libthiserror-8c3477d5a4097f3c.rlib: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\aserror.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\display.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\var.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\private.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\thiserror-17707e13e772697c\out/private.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libthiserror-8c3477d5a4097f3c.rmeta: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\aserror.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\display.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\var.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\private.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\thiserror-17707e13e772697c\out/private.rs
+
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\lib.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\aserror.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\display.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\var.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\thiserror-2.0.19\src\private.rs:
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\thiserror-17707e13e772697c\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\anikd\\Downloads\\BYTE-main\\desktop\\src-tauri\\target\\release\\build\\thiserror-17707e13e772697c\\out

@@ -1,0 +1,14 @@
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\serde-ddb5d81818898210.d: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\serde-d3d6b3e3171c353d\out/private.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libserde-ddb5d81818898210.rlib: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\serde-d3d6b3e3171c353d\out/private.rs
+
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\deps\libserde-ddb5d81818898210.rmeta: C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\serde-d3d6b3e3171c353d\out/private.rs
+
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\lib.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\integer128.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\mod.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\de.rs:
+C:\Users\anikd\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.229\src\private\ser.rs:
+C:\Users\anikd\Downloads\BYTE-main\desktop\src-tauri\target\release\build\serde-d3d6b3e3171c353d\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\anikd\\Downloads\\BYTE-main\\desktop\\src-tauri\\target\\release\\build\\serde-d3d6b3e3171c353d\\out
