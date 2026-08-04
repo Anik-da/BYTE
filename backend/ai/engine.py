@@ -138,7 +138,7 @@ class AIEngine:
 
         if provider == "ollama":
             response = await self._query_ollama(messages, settings.get("ollama_model", "llama3"))
-            if not response.startswith("[Ollama Unavailable]"):
+            if not (response.startswith("[Ollama Offline]") or response.startswith("[Ollama Warning]") or response.startswith("[Ollama Error]")):
                 return response
             
             # Local Ollama is offline; automatically fall back to Groq Cloud
@@ -153,20 +153,47 @@ class AIEngine:
             return f"[BYTE System] AI provider '{provider}' selected. Standing by for inference."
 
     async def _query_ollama(self, messages: list, model: str) -> str:
+        tag_map = {
+            "llama3": "llama3",
+            "qwen2": "qwen2",
+            "gemma2": "gemma2",
+            "deepseek-coder": "deepseek-coder"
+        }
+        target_model = tag_map.get(model, model)
+        
         try:
-            # Build unified prompt from messages for Ollama generate API
-            prompt_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in messages])
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                res = await client.post("http://localhost:11434/api/generate", json={
-                    "model": model,
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                # Try chat endpoint first
+                try:
+                    res = await client.post("http://127.0.0.1:11434/api/chat", json={
+                        "model": target_model,
+                        "messages": messages,
+                        "stream": False
+                    })
+                    if res.status_code == 200:
+                        data = res.json()
+                        content = data.get("message", {}).get("content")
+                        if content:
+                            return content
+                except Exception:
+                    pass
+
+                # Fallback to generate endpoint
+                prompt_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in messages])
+                res2 = await client.post("http://127.0.0.1:11434/api/generate", json={
+                    "model": target_model,
                     "prompt": prompt_str,
                     "stream": False
                 })
-                if res.status_code == 200:
-                    return res.json().get("response", "No response from Ollama.")
-                return f"[Ollama Error] Received status code {res.status_code}"
+                if res2.status_code == 200:
+                    return res2.json().get("response", "No response from Ollama.")
+                    
+                if res2.status_code == 404:
+                    return f"[Ollama Warning] Model '{target_model}' is not pulled locally. Open CMD and run: ollama pull {target_model}"
+                    
+                return f"[Ollama Error] HTTP Status {res2.status_code}"
         except Exception as e:
-            return f"[Ollama Unavailable] Could not connect to local Ollama instance on port 11434 ({str(e)})"
+            return f"[Ollama Offline] Local Ollama service is not active on http://127.0.0.1:11434. Please install/start Ollama (https://ollama.com)."
 
     async def _query_groq(self, messages: list, model: str) -> str:
         api_key = os.environ.get("VITE_GROQ_API_KEY") or os.environ.get("GROQ_API_KEY", "")

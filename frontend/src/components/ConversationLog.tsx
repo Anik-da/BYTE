@@ -186,7 +186,7 @@ export function ConversationLog({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Enter your command..."
-          className="hud-mono h-10 flex-1 border border-hud-red/30 bg-slate-950/60 px-3 text-sm text-hud-red placeholder:text-hud-red/30 focus:border-hud-red/70 focus:outline-none focus:ring-1 focus:ring-hud-red/40"
+          className="hud-mono h-10 flex-1 min-w-0 border border-hud-red/30 bg-slate-950/60 px-3 text-sm text-hud-red placeholder:text-hud-red/30 focus:border-hud-red/70 focus:outline-none focus:ring-1 focus:ring-hud-red/40"
         />
 
         <button

@@ -338,15 +338,15 @@ export default function App() {
       />
 
       {booted && (
-        <div className="flex h-full flex-col p-3 sm:p-4">
+        <div className="flex min-h-screen flex-col overflow-y-auto p-3 sm:p-4">
           <StatusBar onOpenSettings={() => setIsSettingsOpen(true)} />
 
           {/* Main grid: left column | center | right column */}
-          <div className="mt-3 grid flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[280px_1fr_320px]">
+          <div className="mt-3 grid flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_1fr_340px]">
             {/* Left column */}
-            <div className="hidden min-h-0 flex-col gap-3 lg:flex">
+            <div className="hidden min-h-[500px] flex-col gap-3 lg:flex">
               <SystemPanel speaking={speech.speaking} listening={speech.listening} />
-              <div className="min-h-0 flex-1">
+              <div className="min-h-[220px] flex-1">
                 <EventLog />
               </div>
             </div>
@@ -400,7 +400,7 @@ export default function App() {
             </div>
 
             {/* Right column */}
-            <div className="hidden min-h-0 flex-col gap-2.5 lg:flex">
+            <div className="hidden min-h-[500px] flex-col gap-2.5 lg:flex">
               <div className="grid grid-cols-2 gap-2.5">
                 <ThreatPanel />
                 <WorldClock />
@@ -411,7 +411,7 @@ export default function App() {
                   onSelectFile={setActiveFileId}
                 />
               </div>
-              <div className="min-h-0 flex-1">
+              <div className="min-h-[360px] flex-1">
                 <ConversationLog
                   messages={messages}
                   input={input}
