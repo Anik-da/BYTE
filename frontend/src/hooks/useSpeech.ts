@@ -158,9 +158,15 @@ export function useSpeech(): SpeechHook {
     rec.onend = () => {
       setListening(false);
       setInterim('');
+      // Auto-restart recognition for continuous wake-word listening unless manually stopped
       if (!manualStopRef.current) {
-        // auto-restart for continuous feel unless manually stopped
-        // keep it simple: do not auto-restart
+        setTimeout(() => {
+          try {
+            rec.start();
+          } catch {
+            // Already started or busy
+          }
+        }, 300);
       }
       manualStopRef.current = false;
     };

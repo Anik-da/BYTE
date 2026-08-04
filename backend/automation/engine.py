@@ -67,7 +67,13 @@ class AutomationEngine:
     def _open_app(self, app_name: str) -> Dict[str, Any]:
         app_name_lower = app_name.lower().strip()
         
-        # Extended lookup table for common Windows software executables & paths
+        if "notepad" in app_name_lower:
+            try:
+                subprocess.Popen("notepad.exe")
+                return {"status": "success", "message": "Successfully launched 'Notepad'"}
+            except Exception as e:
+                return {"status": "error", "message": f"Failed to launch Notepad: {str(e)}"}
+
         common_apps = {
             "vscode": ["code", r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
             "vs code": ["code", r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
@@ -76,7 +82,6 @@ class AutomationEngine:
             "google chrome": ["chrome", r"C:\Program Files\Google\Chrome\Application\chrome.exe"],
             "edge": ["msedge", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
             "microsoft edge": ["msedge", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
-            "notepad": ["notepad"],
             "calculator": ["calc"],
             "calc": ["calc"],
             "terminal": ["wt", "cmd"],
@@ -89,23 +94,30 @@ class AutomationEngine:
             "discord": ["discord", r"C:\Users\%USERNAME%\AppData\Local\Discord\Update.exe --processStart Discord.exe"]
         }
         
-        candidates = common_apps.get(app_name_lower, [app_name_lower])
+        if app_name_lower in common_apps:
+            candidates = common_apps[app_name_lower]
+            for candidate in candidates:
+                expanded = os.path.expandvars(candidate)
+                try:
+                    subprocess.Popen(f'start "" "{expanded}"', shell=True)
+                    return {"status": "success", "message": f"Successfully launched '{app_name}'"}
+                except Exception:
+                    continue
         
-        for candidate in candidates:
-            expanded = os.path.expandvars(candidate)
+        # Check system PATH executable before trying raw shell start
+        import shutil
+        found_bin = shutil.which(app_name_lower)
+        if found_bin:
             try:
-                # Launch using Windows start shell
-                subprocess.Popen(f'start "" "{expanded}"', shell=True)
+                subprocess.Popen([found_bin])
                 return {"status": "success", "message": f"Successfully launched '{app_name}'"}
             except Exception:
-                continue
+                pass
                 
-        # Last resort fallback: try os.system
-        try:
-            os.system(f'start {app_name_lower}')
-            return {"status": "success", "message": f"Executed launch trigger for '{app_name}'"}
-        except Exception as e:
-            return {"status": "error", "message": f"Failed to launch '{app_name}': {str(e)}"}
+        # If binary is not installed locally, open web search cleanly without raising Windows error modal
+        search_url = f"https://www.google.com/search?q={app_name_lower}"
+        webbrowser.open(search_url)
+        return {"status": "success", "message": f"Local executable '{app_name}' not found. Opened web search in browser."}
 
     def _open_website(self, url_or_query: str) -> Dict[str, Any]:
         if not (url_or_query.startswith("http://") or url_or_query.startswith("https://")):
@@ -115,9 +127,22 @@ class AutomationEngine:
                 url = f"https://www.google.com/search?q={url_or_query}"
         else:
             url = url_or_query
+
+        # If it's a YouTube search query, attempt to resolve the top video ID directly to start playback
+        if "youtube.com/results?search_query=" in url:
+            try:
+                import urllib.request
+                import urllib.parse
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                html = urllib.request.urlopen(req, timeout=3).read().decode('utf-8')
+                v_ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+                if v_ids:
+                    url = f"https://www.youtube.com/watch?v={v_ids[0]}"
+            except Exception:
+                pass
             
         webbrowser.open(url)
-        return {"status": "success", "message": f"Opened {url} in browser"}
+        return {"status": "success", "message": f"Playing video / opening web target in browser."}
 
     def _run_system_command(self, cmd_type: str) -> Dict[str, Any]:
         cmd_type_lower = cmd_type.lower()

@@ -39,7 +39,7 @@ export default function App() {
   const [scanActive, setScanActive] = useState(false);
   const [lockdownActive, setLockdownActive] = useState(false);
   const [decryptActive, setDecryptActive] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<GroqModel>('groq/compound');
+  const [selectedModel, setSelectedModel] = useState<GroqModel>('llama-3.1-8b-instant');
   const [loading, setLoading] = useState(false);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -186,15 +186,34 @@ export default function App() {
     [muted, selectedModel]
   );
 
-  // When listening finishes, process the transcript
+  // Wake word detection ("Hey BYTE" / "BYTE") and transcript processing
+  const lastProcessedTranscriptRef = useRef('');
   useEffect(() => {
-    if (speech.listening) return;
-    if (pendingTranscriptRef.current && speech.transcript) {
+    const raw = (speech.transcript || speech.interim).trim();
+    if (!raw) return;
+
+    const lower = raw.toLowerCase();
+    const wakeWordPattern = /\b(hey\s+byte|byte|wake\s+up\s+byte)\b/i;
+
+    if (wakeWordPattern.test(lower)) {
+      const match = lower.match(wakeWordPattern);
+      const commandIndex = (match?.index ?? 0) + (match?.[0].length ?? 0);
+      const extractedCommand = raw.slice(commandIndex).replace(/^[,\s.:?!]+/, '').trim();
+
+      if (extractedCommand && extractedCommand !== lastProcessedTranscriptRef.current) {
+        lastProcessedTranscriptRef.current = extractedCommand;
+        pendingTranscriptRef.current = false;
+        handleResult(extractedCommand);
+      }
+    } else if (!speech.listening && pendingTranscriptRef.current && speech.transcript) {
       pendingTranscriptRef.current = false;
       const text = speech.transcript.trim();
-      if (text) handleResult(text);
+      if (text && text !== lastProcessedTranscriptRef.current) {
+        lastProcessedTranscriptRef.current = text;
+        handleResult(text);
+      }
     }
-  }, [speech.listening, speech.transcript]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [speech.listening, speech.transcript, speech.interim, handleResult]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();

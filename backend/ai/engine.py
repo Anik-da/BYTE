@@ -132,9 +132,9 @@ class AIEngine:
 
         # Local AI First
         provider = settings.get("ai_provider", "ollama")
-        groq_model = settings.get("groq_model", "llama-3.3-70b-versatile")
+        groq_model = settings.get("groq_model", "llama-3.1-8b-instant")
         if groq_model in ["groq/compound", "groq/compound-mini", "minimaxai/minimax-m2.7"]:
-            groq_model = "llama-3.3-70b-versatile"
+            groq_model = "llama-3.1-8b-instant"
 
         if provider == "ollama":
             response = await self._query_ollama(messages, settings.get("ollama_model", "llama3"))
