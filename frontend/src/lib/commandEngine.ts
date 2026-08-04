@@ -243,8 +243,30 @@ export function parseCommand(raw: string): CommandResult {
     };
   }
 
-  // Music
-  if (/\b(music|play|song|track|playlist)\b/.test(text)) {
+  // Open YouTube & Play Videos / Search Queries
+  if (/(youtube|yt)/.test(text) && /(play|search|find|open|watch)/.test(text)) {
+    const videoQuery = input
+      .replace(/^(open|launch)\s+youtube\s+(and\s+)?(play|search|find)?\s*/i, '')
+      .replace(/^play\s+/i, '')
+      .replace(/\s+on\s+youtube$/i, '')
+      .trim();
+
+    const targetUrl = videoQuery.length > 0
+      ? `https://www.youtube.com/results?search_query=${encodeURIComponent(videoQuery)}`
+      : 'https://www.youtube.com';
+
+    return {
+      intent: 'search',
+      response: videoQuery.length > 0
+        ? `Opening YouTube and searching for: ${videoQuery}`
+        : 'Opening YouTube in your primary browser...',
+      action: 'open_file',
+      data: { url: targetUrl }
+    };
+  }
+
+  // Generic Music Fallback
+  if (/\b(music|song|track|playlist)\b/.test(text)) {
     return {
       intent: 'music',
       response:
