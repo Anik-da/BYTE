@@ -16,12 +16,13 @@ class AIEngine:
         text_lower = text.lower().strip()
         
         # Open Application Intent (dynamic for any application name)
-        if re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower):
-            match = re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower)
-            target = match.group(3).strip() if match else ""
+        if re.search(r'\b(open|launch|run|start)\s+(website|url|site|app|application|program|software)?\s*(.+)', text_lower):
+            match = re.search(r'\b(open|launch|run|start)\s+(website|url|site|app|application|program|software)?\s*(.+)', text_lower)
+            raw_target = match.group(3).strip() if match else ""
+            target = re.sub(r'^(website|url|site|app|application|program|software)\s+', '', raw_target, flags=re.IGNORECASE).strip()
             
             # Check if target is a website URL or web search keyword
-            if target.startswith("http") or target.endswith((".com", ".org", ".net", ".io")) or " " not in target and "." in target:
+            if target.startswith("http") or target.endswith((".com", ".org", ".net", ".io")) or (" " not in target and "." in target):
                 return {
                     "intent": "open_website",
                     "target": target,

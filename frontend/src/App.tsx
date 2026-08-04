@@ -138,7 +138,6 @@ export default function App() {
           const url = (result.data as { url?: string })?.url;
           if (url) {
             window.open(url, '_blank');
-            sendDesktopCommand(`open website ${url}`).catch(() => {});
           }
 
           const app = (result.data as { app?: string })?.app;
