@@ -33,7 +33,7 @@ export function QuickCommands({ onCommand }: QuickCommandsProps) {
       <div className="mb-2 flex items-center justify-between">
         <h3 className="hud-display text-[10px] font-bold tracking-widest text-hud-red hud-glow flex items-center gap-1.5">
           <span className="h-1.5 w-1.5 rounded-full bg-hud-red animate-ping" />
-          J.A.R.V.I.S. TACTICAL PROTOCOLS
+          BYTE TACTICAL PROTOCOLS
         </h3>
         <span className="hud-mono text-[9px] text-hud-red/50">SYSTEM LEVEL: 0</span>
       </div>
