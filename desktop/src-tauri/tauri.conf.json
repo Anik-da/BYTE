@@ -13,6 +13,7 @@
     "windows": [
       {
         "title": "BYTE Mission Control",
+        "url": "index.html",
         "width": 1280,
         "height": 800,
         "resizable": true,
