@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 interface RadarSweepProps {
@@ -15,27 +15,26 @@ interface ConnectionDot {
 
 export function RadarSweep({ active }: RadarSweepProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const activeRef = useRef(active);
-  activeRef.current = active;
+  const connectionsRef = useRef<ConnectionDot[]>([]);
 
-  const [connections, setConnections] = useState<ConnectionDot[]>([]);
-
+  // Poll connections into a ref — never triggers canvas re-init
   useEffect(() => {
     let mounted = true;
     const fetchLiveConns = async () => {
       const data = await fetchSystemTelemetry();
       if (data && data.connections && mounted) {
-        setConnections(data.connections);
+        connectionsRef.current = data.connections;
       }
     };
     fetchLiveConns();
-    const interval = setInterval(fetchLiveConns, 2000);
+    const interval = setInterval(fetchLiveConns, 3000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
   }, []);
 
+  // Single persistent animation loop — never restarts
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -88,7 +87,9 @@ export function RadarSweep({ active }: RadarSweepProps) {
 
       // Sweep
       const sweepAngle = t * 1.2;
-      const sweepGrad = ctx.createConicGradient ? ctx.createConicGradient(sweepAngle, cx, cy) : null;
+      const sweepGrad = ctx.createConicGradient
+        ? ctx.createConicGradient(sweepAngle, cx, cy)
+        : null;
       if (sweepGrad) {
         sweepGrad.addColorStop(0, 'rgba(239, 68, 68, 0.4)');
         sweepGrad.addColorStop(0.08, 'rgba(239, 68, 68, 0)');
@@ -122,35 +123,40 @@ export function RadarSweep({ active }: RadarSweepProps) {
       ctx.stroke();
       ctx.restore();
 
-      // Draw Live connection blips
-      connections.forEach((conn) => {
+      // Draw Live connection blips from ref (no re-init)
+      const conns = connectionsRef.current;
+      for (const conn of conns) {
         const radAngle = (conn.angle * Math.PI) / 180;
         const bx = cx + Math.cos(radAngle) * (conn.distance * maxR);
         const by = cy + Math.sin(radAngle) * (conn.distance * maxR);
 
-        // Blip animation intensity based on sweep angle proximity
-        const angleDiff = Math.abs((radAngle - sweepAngle) % (Math.PI * 2));
-        const intensity = Math.max(0.1, 1 - angleDiff / (Math.PI / 2));
+        // Blip fades in/out as sweep passes
+        const sweepNorm = ((sweepAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const blipNorm = ((radAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        let diff = sweepNorm - blipNorm;
+        if (diff < 0) diff += Math.PI * 2;
+        const intensity = diff < Math.PI ? Math.max(0.15, 1 - diff / Math.PI) : 0.15;
 
-        // Draw node
-        ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.95})`;
-        ctx.beginPath();
-        ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.strokeStyle = `rgba(239, 68, 68, ${intensity * 0.45})`;
+        // Glow ring
+        ctx.strokeStyle = `rgba(239, 68, 68, ${intensity * 0.4})`;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(bx, by, 7, 0, Math.PI * 2);
         ctx.stroke();
 
-        // If sweep is very close, render port and status text dynamically
-        if (intensity > 0.8) {
-          ctx.fillStyle = 'rgba(239, 68, 68, 0.7)';
-          ctx.font = '7px monospace';
-          ctx.fillText(`PORT:${conn.port}`, bx + 6, by - 2);
+        // Dot
+        ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.95})`;
+        ctx.beginPath();
+        ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Label when sweep is very close
+        if (intensity > 0.7) {
+          ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.7})`;
+          ctx.font = '7px "Share Tech Mono", monospace';
+          ctx.fillText(`:${conn.port}`, bx + 8, by + 3);
         }
-      });
+      }
 
       // Center dot
       ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
@@ -160,9 +166,11 @@ export function RadarSweep({ active }: RadarSweepProps) {
 
       raf = requestAnimationFrame(draw);
     };
+
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [connections]);
+  }, []); // empty deps = never restarts
+
   return (
     <div className="flex flex-col items-center">
       <canvas ref={canvasRef} className="block" />

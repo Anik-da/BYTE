@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 interface Node {
@@ -11,24 +11,26 @@ interface Node {
 
 export function NeuralNetwork() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [cpuLoad, setCpuLoad] = useState<number>(18);
+  const cpuRef = useRef<number>(18);
 
+  // Poll CPU into a ref — never triggers canvas re-init
   useEffect(() => {
     let mounted = true;
     const fetchLiveCpu = async () => {
       const data = await fetchSystemTelemetry();
       if (data && mounted) {
-        setCpuLoad(Number(data.cpu_load || 18));
+        cpuRef.current = Number(data.cpu_load || 18);
       }
     };
     fetchLiveCpu();
-    const interval = setInterval(fetchLiveCpu, 2000);
+    const interval = setInterval(fetchLiveCpu, 3000);
     return () => {
       mounted = false;
       clearInterval(interval);
     };
   }, []);
 
+  // Single persistent animation loop — never restarts
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -59,8 +61,8 @@ export function NeuralNetwork() {
     const maxDist = 90;
 
     const draw = () => {
-      // Scale animation speed by cpuLoad (normalized around 18-30%)
-      const speedFactor = Math.max(0.4, Math.min(3.5, cpuLoad / 20.0));
+      // Read CPU load from ref (no re-init on change)
+      const speedFactor = Math.max(0.4, Math.min(3.5, cpuRef.current / 20.0));
       t += 0.016 * speedFactor;
       ctx.clearRect(0, 0, width, height);
 
@@ -89,7 +91,7 @@ export function NeuralNetwork() {
             ctx.stroke();
 
             // Animated pulse along the line
-            const pulsePos = ((t + i * 0.3) % 1);
+            const pulsePos = (t + i * 0.3) % 1;
             const px = nodes[i].x + (nodes[j].x - nodes[i].x) * pulsePos;
             const py = nodes[i].y + (nodes[j].y - nodes[i].y) * pulsePos;
             ctx.fillStyle = `rgba(248, 113, 113, ${alpha * 1.5})`;
@@ -117,6 +119,7 @@ export function NeuralNetwork() {
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, [cpuLoad]);
+  }, []); // empty deps = never restarts
+
   return <canvas ref={canvasRef} className="h-full w-full" />;
 }
