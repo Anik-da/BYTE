@@ -1,20 +1,40 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 interface RadarSweepProps {
   active: boolean;
 }
 
-interface Blip {
+interface ConnectionDot {
+  ip: string;
+  port: number;
   angle: number;
   distance: number;
-  speed: number;
-  life: number;
+  status: string;
 }
 
 export function RadarSweep({ active }: RadarSweepProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const activeRef = useRef(active);
   activeRef.current = active;
+
+  const [connections, setConnections] = useState<ConnectionDot[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchLiveConns = async () => {
+      const data = await fetchSystemTelemetry();
+      if (data && data.connections && mounted) {
+        setConnections(data.connections);
+      }
+    };
+    fetchLiveConns();
+    const interval = setInterval(fetchLiveConns, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -32,16 +52,12 @@ export function RadarSweep({ active }: RadarSweepProps) {
     canvas.style.height = `${size}px`;
     ctx.scale(dpr, dpr);
 
-    const blips: Blip[] = [];
-    let blipTimer = 0;
-
     const draw = () => {
       t += 0.02;
       ctx.clearRect(0, 0, size, size);
       const cx = size / 2;
       const cy = size / 2;
       const maxR = size / 2 - 10;
-      const a = activeRef.current;
 
       // Background circles
       ctx.strokeStyle = 'rgba(239, 68, 68, 0.15)';
@@ -82,7 +98,6 @@ export function RadarSweep({ active }: RadarSweepProps) {
         ctx.arc(cx, cy, maxR, 0, Math.PI * 2);
         ctx.fill();
       } else {
-        // Fallback: draw a wedge
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(sweepAngle);
@@ -107,54 +122,47 @@ export function RadarSweep({ active }: RadarSweepProps) {
       ctx.stroke();
       ctx.restore();
 
-      // Spawn blips
-      if (a) {
-        blipTimer += 0.02;
-        if (blipTimer > 2.5) {
-          blipTimer = 0;
-          blips.push({
-            angle: Math.random() * Math.PI * 2,
-            distance: Math.random() * maxR * 0.85 + 20,
-            speed: (Math.random() - 0.5) * 0.01,
-            life: 1,
-          });
-        }
-      }
+      // Draw Live connection blips
+      connections.forEach((conn) => {
+        const radAngle = (conn.angle * Math.PI) / 180;
+        const bx = cx + Math.cos(radAngle) * (conn.distance * maxR);
+        const by = cy + Math.sin(radAngle) * (conn.distance * maxR);
 
-      // Draw blips
-      for (let i = blips.length - 1; i >= 0; i--) {
-        const b = blips[i];
-        b.angle += b.speed;
-        b.life -= 0.004;
-        if (b.life <= 0) {
-          blips.splice(i, 1);
-          continue;
+        // Blip animation intensity based on sweep angle proximity
+        const angleDiff = Math.abs((radAngle - sweepAngle) % (Math.PI * 2));
+        const intensity = Math.max(0.1, 1 - angleDiff / (Math.PI / 2));
+
+        // Draw node
+        ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.95})`;
+        ctx.beginPath();
+        ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(239, 68, 68, ${intensity * 0.45})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(bx, by, 7, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // If sweep is very close, render port and status text dynamically
+        if (intensity > 0.8) {
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.7)';
+          ctx.font = '7px monospace';
+          ctx.fillText(`PORT:${conn.port}`, bx + 6, by - 2);
         }
-        const bx = cx + Math.cos(b.angle) * b.distance;
-        const by = cy + Math.sin(b.angle) * b.distance;
-        ctx.fillStyle = `rgba(239, 68, 68, ${b.life * 0.9})`;
-        ctx.beginPath();
-        ctx.arc(bx, by, 3, 0, Math.PI * 2);
-        ctx.fill();
-        // glow
-        ctx.fillStyle = `rgba(239, 68, 68, ${b.life * 0.3})`;
-        ctx.beginPath();
-        ctx.arc(bx, by, 6, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      });
 
       // Center dot
       ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
       ctx.beginPath();
-      ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
       ctx.fill();
 
       raf = requestAnimationFrame(draw);
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, []);
-
+  }, [connections]);
   return (
     <div className="flex flex-col items-center">
       <canvas ref={canvasRef} className="block" />

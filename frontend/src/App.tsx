@@ -22,6 +22,7 @@ import { sendDesktopCommand, fetchConversationHistory, clearConversationHistory,
 import { UpdateDialog } from '@/components/UpdateDialog';
 import { checkForUpdate } from '@/lib/updater';
 import { Update } from '@tauri-apps/plugin-updater';
+import { WorldMapBackground } from '@/components/WorldMapBackground';
 
 function makeId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -377,7 +378,8 @@ export default function App() {
             </div>
 
             {/* Center column */}
-            <div className="flex min-h-0 flex-col items-center justify-between overflow-y-auto py-2">
+            <div className="relative flex min-h-0 flex-col items-center justify-between overflow-hidden py-2">
+              <WorldMapBackground />
               <div className="relative flex flex-col items-center my-auto">
                 <ArcReactor
                   active={booted}

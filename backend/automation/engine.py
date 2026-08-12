@@ -198,6 +198,53 @@ class AutomationEngine:
         threat_level = "YELLOW" if (cpu_load > 85 or mem.percent > 85) else "GREEN"
         hostile_contacts = 1 if threat_level == "YELLOW" else 0
 
+        # Fetch Geo-Location via IP
+        geo_info = {
+            "lat": 22.5726,
+            "lon": 88.3639,
+            "city": "Kolkata",
+            "country": "India",
+            "ip": "127.0.0.1"
+        }
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request("http://ip-api.com/json", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=1.5) as response:
+                data = json.loads(response.read().decode())
+                if data.get("status") == "success":
+                    geo_info["lat"] = float(data.get("lat", 22.5726))
+                    geo_info["lon"] = float(data.get("lon", 88.3639))
+                    geo_info["city"] = data.get("city", "Kolkata")
+                    geo_info["country"] = data.get("country", "India")
+                    geo_info["ip"] = data.get("query", "127.0.0.1")
+        except Exception:
+            pass
+
+        # Get active network connections for live radar dots
+        conn_dots = []
+        try:
+            conns = psutil.net_connections(kind='inet')
+            for c in conns:
+                if c.raddr:
+                    ip_str = c.raddr.ip
+                    port = c.raddr.port
+                    # Deterministic hash to map IP to coordinates
+                    h = hash(ip_str)
+                    angle = (h % 360)
+                    dist = 0.2 + (abs(h) % 70) / 100.0
+                    conn_dots.append({
+                        "ip": ip_str,
+                        "port": port,
+                        "angle": angle,
+                        "distance": dist,
+                        "status": c.status
+                    })
+                    if len(conn_dots) >= 12:
+                        break
+        except Exception:
+            pass
+
         return {
             "cpu_load": round(cpu_load, 1),
             "memory_percent": round(mem.percent, 1),
@@ -213,7 +260,9 @@ class AutomationEngine:
             "hostile_contacts": hostile_contacts,
             "perimeter": 100,
             "integrity": 100,
-            "gpu": gpu_info
+            "gpu": gpu_info,
+            "location": geo_info,
+            "connections": conn_dots
         }
 
     def check_github_update(self) -> Dict[str, Any]:

@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 interface Node {
   x: number;
@@ -10,6 +11,23 @@ interface Node {
 
 export function NeuralNetwork() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [cpuLoad, setCpuLoad] = useState<number>(18);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchLiveCpu = async () => {
+      const data = await fetchSystemTelemetry();
+      if (data && mounted) {
+        setCpuLoad(Number(data.cpu_load || 18));
+      }
+    };
+    fetchLiveCpu();
+    const interval = setInterval(fetchLiveCpu, 2000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,16 +59,18 @@ export function NeuralNetwork() {
     const maxDist = 90;
 
     const draw = () => {
-      t += 0.016;
+      // Scale animation speed by cpuLoad (normalized around 18-30%)
+      const speedFactor = Math.max(0.4, Math.min(3.5, cpuLoad / 20.0));
+      t += 0.016 * speedFactor;
       ctx.clearRect(0, 0, width, height);
 
       // Update nodes
       for (const n of nodes) {
-        n.x += n.vx;
-        n.y += n.vy;
+        n.x += n.vx * speedFactor;
+        n.y += n.vy * speedFactor;
         if (n.x < 0 || n.x > width) n.vx *= -1;
         if (n.y < 0 || n.y > height) n.vy *= -1;
-        n.pulse += 0.03;
+        n.pulse += 0.03 * speedFactor;
       }
 
       // Draw connections
@@ -97,7 +117,6 @@ export function NeuralNetwork() {
     };
     draw();
     return () => cancelAnimationFrame(raf);
-  }, []);
-
+  }, [cpuLoad]);
   return <canvas ref={canvasRef} className="h-full w-full" />;
 }
