@@ -117,7 +117,7 @@ export function useSpeech(): SpeechHook {
     if (!Ctor) return null;
     const rec = new Ctor();
     rec.lang = 'en-US';
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
 
@@ -131,12 +131,12 @@ export function useSpeech(): SpeechHook {
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const res = event.results[i];
-        if (res.isFinal) finalText += res[0].transcript;
+        if (res.isFinal) finalText += res[0].transcript + ' ';
         else interimText += res[0].transcript;
       }
       if (finalText) {
-        finalTranscriptRef.current += finalText;
-        setTranscript(finalTranscriptRef.current.trim());
+        finalTranscriptRef.current = (finalTranscriptRef.current + ' ' + finalText).trim();
+        setTranscript(finalTranscriptRef.current);
       }
       setInterim(interimText);
     };
@@ -144,7 +144,7 @@ export function useSpeech(): SpeechHook {
     rec.onerror = (event: Event) => {
       const e = event as unknown as { error?: string };
       if (e.error === 'no-speech') {
-        setError('No speech detected.');
+        // Continuous mode no-speech is normal
       } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         setError('Microphone access denied.');
       } else if (e.error === 'aborted') {
@@ -152,28 +152,38 @@ export function useSpeech(): SpeechHook {
       } else {
         setError(e.error ? `Recognition error: ${e.error}` : 'Recognition error.');
       }
-      setListening(false);
     };
 
     rec.onend = () => {
       setListening(false);
       setInterim('');
-      // Auto-restart recognition for continuous wake-word listening unless manually stopped
+      // Always auto-restart for continuous background wake word listening
       if (!manualStopRef.current) {
         setTimeout(() => {
           try {
             rec.start();
           } catch {
-            // Already started or busy
+            // Already active
           }
-        }, 300);
+        }, 200);
       }
-      manualStopRef.current = false;
     };
 
     recognitionRef.current = rec;
     return rec;
   }, []);
+
+  // Auto-initialize background voice listener on mount
+  useEffect(() => {
+    const rec = ensureRecognition();
+    if (rec) {
+      try {
+        rec.start();
+      } catch {
+        // Ignore if already active
+      }
+    }
+  }, [ensureRecognition]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
