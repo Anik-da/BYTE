@@ -13,21 +13,36 @@ interface ConnectionDot {
   status: string;
 }
 
+interface NearbyDevice {
+  name: string;
+  type: 'wifi' | 'bluetooth';
+  signal: number;
+  mac?: string;
+  angle: number;
+  distance: number;
+}
+
 export function RadarSweep({ active }: RadarSweepProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const connectionsRef = useRef<ConnectionDot[]>([]);
+  const nearbyDevicesRef = useRef<NearbyDevice[]>([]);
 
-  // Poll connections into a ref — never triggers canvas re-init
+  // Poll connections and nearby devices into refs — never triggers canvas re-init
   useEffect(() => {
     let mounted = true;
-    const fetchLiveConns = async () => {
+    const fetchLiveTelemetry = async () => {
       const data = await fetchSystemTelemetry();
-      if (data && data.connections && mounted) {
-        connectionsRef.current = data.connections;
+      if (data && mounted) {
+        if (data.connections) {
+          connectionsRef.current = data.connections;
+        }
+        if (data.nearby_devices) {
+          nearbyDevicesRef.current = data.nearby_devices;
+        }
       }
     };
-    fetchLiveConns();
-    const interval = setInterval(fetchLiveConns, 3000);
+    fetchLiveTelemetry();
+    const interval = setInterval(fetchLiveTelemetry, 3000);
     return () => {
       mounted = false;
       clearInterval(interval);
@@ -123,38 +138,71 @@ export function RadarSweep({ active }: RadarSweepProps) {
       ctx.stroke();
       ctx.restore();
 
-      // Draw Live connection blips from ref (no re-init)
+      const sweepNorm = ((sweepAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+      // 1. Draw Live connection blips (RED)
       const conns = connectionsRef.current;
       for (const conn of conns) {
         const radAngle = (conn.angle * Math.PI) / 180;
         const bx = cx + Math.cos(radAngle) * (conn.distance * maxR);
         const by = cy + Math.sin(radAngle) * (conn.distance * maxR);
 
-        // Blip fades in/out as sweep passes
-        const sweepNorm = ((sweepAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         const blipNorm = ((radAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
         let diff = sweepNorm - blipNorm;
         if (diff < 0) diff += Math.PI * 2;
         const intensity = diff < Math.PI ? Math.max(0.15, 1 - diff / Math.PI) : 0.15;
 
-        // Glow ring
         ctx.strokeStyle = `rgba(239, 68, 68, ${intensity * 0.4})`;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(bx, by, 7, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Dot
         ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.95})`;
         ctx.beginPath();
         ctx.arc(bx, by, 3.5, 0, Math.PI * 2);
         ctx.fill();
 
-        // Label when sweep is very close
         if (intensity > 0.7) {
           ctx.fillStyle = `rgba(239, 68, 68, ${intensity * 0.7})`;
           ctx.font = '7px "Share Tech Mono", monospace';
           ctx.fillText(`:${conn.port}`, bx + 8, by + 3);
+        }
+      }
+
+      // 2. Draw Nearby WIFI & Bluetooth devices (Cyan for Wifi, Pink/Magenta for Bluetooth)
+      const devices = nearbyDevicesRef.current;
+      for (const dev of devices) {
+        const radAngle = (dev.angle * Math.PI) / 180;
+        const bx = cx + Math.cos(radAngle) * (dev.distance * maxR);
+        const by = cy + Math.sin(radAngle) * (dev.distance * maxR);
+
+        const blipNorm = ((radAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        let diff = sweepNorm - blipNorm;
+        if (diff < 0) diff += Math.PI * 2;
+        const intensity = diff < Math.PI ? Math.max(0.15, 1 - diff / Math.PI) : 0.15;
+
+        // Choose color palette based on device type
+        const isWifi = dev.type === 'wifi';
+        const colorPrefix = isWifi ? '6, 182, 212' : '236, 72, 153'; // cyan-500 or pink-500
+
+        ctx.strokeStyle = `rgba(${colorPrefix}, ${intensity * 0.45})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(bx, by, 8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = `rgba(${colorPrefix}, ${intensity * 0.95})`;
+        ctx.beginPath();
+        ctx.arc(bx, by, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (intensity > 0.7) {
+          ctx.fillStyle = `rgba(${colorPrefix}, ${intensity * 0.8})`;
+          ctx.font = '7px "Share Tech Mono", monospace';
+          const labelPrefix = isWifi ? 'WiFi:' : 'BT:';
+          const nameTrim = dev.name.length > 8 ? dev.name.slice(0, 8) + '..' : dev.name;
+          ctx.fillText(`${labelPrefix}${nameTrim}`, bx + 10, by + 3);
         }
       }
 

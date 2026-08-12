@@ -9,40 +9,69 @@ interface LocationInfo {
   ip: string;
 }
 
-// Simplified world coastline outlines as polylines [lat, lon][]
-// Each sub-array is one connected stroke path
-const WORLD_OUTLINES: [number, number][][] = [
+interface ConnectionDot {
+  ip: string;
+  port: number;
+  angle: number;
+  distance: number;
+  status: string;
+}
+
+// Major global cities for animated data flow arcs
+const CITIES: { name: string; lat: number; lon: number }[] = [
+  { name: 'New York', lat: 40.71, lon: -74.01 },
+  { name: 'London', lat: 51.51, lon: -0.13 },
+  { name: 'Tokyo', lat: 35.68, lon: 139.69 },
+  { name: 'Singapore', lat: 1.35, lon: 103.82 },
+  { name: 'Sydney', lat: -33.87, lon: 151.21 },
+  { name: 'Dubai', lat: 25.2, lon: 55.27 },
+  { name: 'Frankfurt', lat: 50.11, lon: 8.68 },
+  { name: 'São Paulo', lat: -23.55, lon: -46.63 },
+  { name: 'Mumbai', lat: 19.08, lon: 72.88 },
+  { name: 'Seoul', lat: 37.57, lon: 126.98 },
+  { name: 'Los Angeles', lat: 34.05, lon: -118.24 },
+  { name: 'Moscow', lat: 55.76, lon: 37.62 },
+];
+
+// Simplified world coastline as connected polyline segments [lat, lon][]
+const WORLD: [number, number][][] = [
   // North America
-  [[-10, -80], [5, -77], [10, -84], [18, -88], [20, -90], [25, -97], [30, -95], [29, -85], [25, -80], [30, -81], [35, -76], [40, -74], [42, -70], [44, -67], [47, -60], [50, -57], [52, -56], [47, -53], [60, -45], [62, -42], [67, -54], [70, -56], [73, -58], [75, -65], [72, -78], [70, -90], [72, -97], [71, -157], [65, -168], [60, -166], [59, -152], [56, -133], [50, -128], [42, -124], [35, -120], [30, -117], [25, -110], [20, -106], [18, -105], [15, -92], [10, -84]],
+  [[60,-140],[65,-168],[71,-157],[72,-97],[75,-65],[73,-58],[70,-56],[67,-54],[62,-42],[60,-45],[47,-53],[52,-56],[50,-57],[47,-60],[44,-67],[42,-70],[40,-74],[35,-76],[30,-81],[25,-80],[29,-85],[30,-95],[25,-97],[20,-90],[18,-88],[10,-84],[5,-77],[-5,-80]],
+  // Central America
+  [[18,-88],[15,-92],[10,-84],[8,-80],[10,-76],[8,-77]],
   // South America
-  [[-5, -80], [0, -80], [5, -77], [-5, -35], [-8, -35], [-15, -39], [-23, -41], [-33, -52], [-41, -63], [-46, -67], [-52, -69], [-55, -68], [-56, -66], [-54, -65], [-52, -71], [-46, -75], [-40, -73], [-37, -73], [-33, -71], [-27, -71], [-18, -70], [-15, -76], [-5, -80]],
-  // Europe
-  [[36, -6], [37, -2], [40, 0], [43, 3], [44, 8], [46, 6], [47, 1], [48, -5], [49, -1], [51, 2], [53, 5], [55, 8], [57, 10], [60, 5], [62, 6], [64, 10], [67, 15], [70, 20], [71, 28], [70, 32], [67, 41], [62, 34], [56, 21], [55, 15], [54, 10], [53, 14], [50, 14], [48, 17], [46, 14], [44, 12], [42, 3], [38, -1], [36, -6]],
+  [[10,-76],[8,-72],[12,-72],[5,-60],[0,-50],[-5,-35],[-8,-35],[-15,-39],[-23,-41],[-33,-52],[-41,-63],[-46,-67],[-52,-69],[-55,-68],[-56,-66],[-54,-65],[-52,-71],[-46,-75],[-40,-73],[-33,-71],[-27,-71],[-18,-70],[-15,-76],[-5,-80],[5,-77],[10,-76]],
+  // Europe west
+  [[36,-6],[37,-2],[40,0],[43,3],[44,8],[46,6],[47,1],[48,-5],[49,-1],[51,2],[53,5],[55,8],[57,10],[60,5],[62,6],[64,10],[67,15],[70,20],[71,28]],
+  // Europe east -> Russia
+  [[71,28],[70,32],[67,41],[62,34],[56,21],[55,15],[54,10],[53,14],[50,14],[48,17],[46,14],[44,12],[42,3],[38,-1],[36,-6]],
   // Africa
-  [[36, -6], [35, -1], [34, 10], [32, 32], [30, 33], [22, 37], [15, 43], [12, 44], [5, 42], [-2, 42], [-12, 41], [-25, 35], [-34, 26], [-35, 20], [-30, 17], [-20, 13], [-13, 12], [-5, 10], [0, 10], [5, 2], [5, -5], [10, -15], [15, -17], [20, -17], [25, -15], [28, -13], [33, -8], [36, -6]],
-  // Asia
-  [[42, 28], [41, 45], [38, 48], [30, 48], [25, 57], [22, 60], [24, 66], [20, 73], [23, 78], [22, 88], [20, 92], [22, 97], [10, 99], [8, 98], [1, 104], [6, 118], [10, 109], [20, 110], [22, 114], [30, 121], [35, 129], [38, 135], [42, 140], [46, 143], [50, 143], [53, 141], [59, 143], [60, 160], [63, 172], [66, 180], [70, 170], [72, 140], [70, 90], [67, 41], [62, 34], [50, 30], [42, 28]],
+  [[36,-6],[35,-1],[34,10],[32,32],[30,33],[22,37],[15,43],[12,44],[5,42],[-2,42],[-12,41],[-25,35],[-34,26],[-35,20],[-30,17],[-20,13],[-13,12],[-5,10],[0,10],[5,2],[5,-5],[10,-15],[15,-17],[20,-17],[25,-15],[28,-13],[33,-8],[36,-6]],
+  // Middle East -> Asia
+  [[42,28],[41,45],[38,48],[30,48],[25,57],[22,60],[24,66],[20,73]],
+  // India
+  [[30,75],[28,73],[25,68],[24,69],[21,73],[16,74],[12,75],[8,77],[10,80],[13,80],[17,82],[20,87],[22,88]],
+  // Southeast -> East Asia
+  [[22,88],[20,92],[22,97],[10,99],[8,98],[1,104],[6,118],[10,109],[20,110],[22,114],[30,121],[35,129],[38,135],[42,140],[46,143],[50,143],[53,141],[59,143],[60,160],[63,172]],
+  // Russia north
+  [[71,28],[72,50],[72,90],[72,140],[70,170],[66,180]],
   // Australia
-  [[-25, 114], [-20, 115], [-15, 129], [-12, 132], [-12, 136], [-15, 141], [-30, 153], [-38, 146], [-38, 142], [-35, 136], [-32, 134], [-32, 128], [-25, 114]],
-  // India detail
-  [[30, 75], [28, 73], [25, 68], [24, 69], [21, 73], [16, 74], [12, 75], [8, 77], [10, 80], [13, 80], [17, 82], [20, 87], [22, 88], [24, 89], [26, 90], [27, 88], [26, 84], [28, 77], [30, 75]],
+  [[-25,114],[-20,115],[-15,129],[-12,132],[-12,136],[-15,141],[-30,153],[-38,146],[-38,142],[-35,136],[-32,134],[-32,128],[-25,114]],
 ];
 
 export function WorldMapBackground() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const locationRef = useRef<LocationInfo>({
-    lat: 22.5726,
-    lon: 88.3639,
-    city: 'Kolkata',
-    country: 'India',
-    ip: '127.0.0.1',
+    lat: 22.5726, lon: 88.3639,
+    city: 'Kolkata', country: 'India', ip: '127.0.0.1',
   });
+  const connectionsRef = useRef<ConnectionDot[]>([]);
 
-  // Get actual browser Geolocation + backend data into ref
+  // Geo + telemetry into refs
   useEffect(() => {
     let mounted = true;
 
-    // Try browser native geolocation first (actual GPS/WiFi)
+    // Browser native geolocation
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -54,35 +83,32 @@ export function WorldMapBackground() {
             };
           }
         },
-        () => {}, // fail silently, backend fallback will cover
+        () => {},
         { enableHighAccuracy: true, timeout: 5000 }
       );
     }
 
-    // Also fetch from backend for city/ip data
-    const fetchBackendLocation = async () => {
+    const fetchData = async () => {
       const data = await fetchSystemTelemetry();
-      if (data && data.location && mounted) {
-        const loc = data.location;
-        // Only overwrite lat/lon if browser geolocation didn't succeed
+      if (!data || !mounted) return;
+      if (data.location) {
         const cur = locationRef.current;
         const hasGeo = cur.lat !== 22.5726 || cur.lon !== 88.3639;
         locationRef.current = {
-          lat: hasGeo ? cur.lat : Number(loc.lat || 22.5726),
-          lon: hasGeo ? cur.lon : Number(loc.lon || 88.3639),
-          city: String(loc.city || 'Unknown'),
-          country: String(loc.country || 'Unknown'),
-          ip: String(loc.ip || '127.0.0.1'),
+          lat: hasGeo ? cur.lat : Number(data.location.lat || 22.5726),
+          lon: hasGeo ? cur.lon : Number(data.location.lon || 88.3639),
+          city: String(data.location.city || 'Unknown'),
+          country: String(data.location.country || 'Unknown'),
+          ip: String(data.location.ip || '127.0.0.1'),
         };
       }
+      if (data.connections) {
+        connectionsRef.current = data.connections;
+      }
     };
-    fetchBackendLocation();
-    const interval = setInterval(fetchBackendLocation, 15000);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
+    fetchData();
+    const interval = setInterval(fetchData, 10000);
+    return () => { mounted = false; clearInterval(interval); };
   }, []);
 
   // Single persistent animation loop
@@ -106,117 +132,194 @@ export function WorldMapBackground() {
     window.addEventListener('resize', resize);
 
     const draw = () => {
-      t += 0.03;
+      t += 0.008;
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
       ctx.clearRect(0, 0, w, h);
 
-      // Lat/Lon -> pixel converter
       const toXY = (lat: number, lon: number): [number, number] => {
-        const x = ((lon + 180) / 360) * w;
-        const y = ((90 - lat) / 180) * h;
-        return [x, y];
+        return [((lon + 180) / 360) * w, ((90 - lat) / 180) * h];
       };
 
-      // Draw subtle grid
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.035)';
+      // --- Animated scanning grid ---
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.025)';
       ctx.lineWidth = 0.5;
-      for (let lat = -60; lat <= 80; lat += 30) {
+      for (let lat = -60; lat <= 80; lat += 15) {
         const [, y] = toXY(lat, 0);
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
       }
-      for (let lon = -180; lon <= 180; lon += 30) {
+      for (let lon = -180; lon <= 180; lon += 15) {
         const [x] = toXY(0, lon);
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
       }
 
-      // Draw world outline strokes
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.2)';
-      ctx.lineWidth = 1;
-      for (const outline of WORLD_OUTLINES) {
+      // Horizontal scan line animation
+      const scanY = (t * 120) % h;
+      const scanGrad = ctx.createLinearGradient(0, scanY - 3, 0, scanY + 3);
+      scanGrad.addColorStop(0, 'rgba(239, 68, 68, 0)');
+      scanGrad.addColorStop(0.5, 'rgba(239, 68, 68, 0.08)');
+      scanGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = scanGrad;
+      ctx.fillRect(0, scanY - 3, w, 6);
+
+      // --- World coastline outlines ---
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.18)';
+      ctx.lineWidth = 0.8;
+      for (const outline of WORLD) {
         if (outline.length < 2) continue;
         ctx.beginPath();
-        const [sy, sx] = toXY(outline[0][0], outline[0][1]);
-        ctx.moveTo(sy, sx);
+        const [sx, sy] = toXY(outline[0][0], outline[0][1]);
+        ctx.moveTo(sx, sy);
         for (let i = 1; i < outline.length; i++) {
-          const [py, px] = toXY(outline[i][0], outline[i][1]);
-          ctx.lineTo(py, px);
+          const [px, py] = toXY(outline[i][0], outline[i][1]);
+          ctx.lineTo(px, py);
         }
         ctx.stroke();
       }
 
-      // Scatter dots along coastlines for density feel
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
-      for (const outline of WORLD_OUTLINES) {
-        for (let i = 0; i < outline.length - 1; i++) {
-          const steps = 4;
-          for (let s = 0; s < steps; s++) {
-            const frac = s / steps;
-            const mlat = outline[i][0] + (outline[i + 1][0] - outline[i][0]) * frac;
-            const mlon = outline[i][1] + (outline[i + 1][1] - outline[i][1]) * frac;
-            const [dx, dy] = toXY(mlat, mlon);
-            ctx.beginPath();
-            ctx.arc(dx, dy, 1, 0, Math.PI * 2);
-            ctx.fill();
-          }
+      // Fill landmass with very subtle glow
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.02)';
+      for (const outline of WORLD) {
+        if (outline.length < 3) continue;
+        ctx.beginPath();
+        const [sx, sy] = toXY(outline[0][0], outline[0][1]);
+        ctx.moveTo(sx, sy);
+        for (let i = 1; i < outline.length; i++) {
+          const [px, py] = toXY(outline[i][0], outline[i][1]);
+          ctx.lineTo(px, py);
         }
+        ctx.closePath();
+        ctx.fill();
       }
 
-      // Draw user location
+      // --- City nodes ---
       const loc = locationRef.current;
       const [uX, uY] = toXY(loc.lat, loc.lon);
 
+      for (const city of CITIES) {
+        const [cx, cy] = toXY(city.lat, city.lon);
+        const pulse = Math.sin(t * 3 + city.lat * 0.1) * 0.3 + 0.7;
+
+        // City dot
+        ctx.fillStyle = `rgba(239, 68, 68, ${pulse * 0.35})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgba(239, 68, 68, ${pulse * 0.7})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- Animated data flow arc from user location to city ---
+        const dx = cx - uX;
+        const dy = cy - uY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 10) continue; // skip if same location
+
+        // Draw curved arc
+        const midX = (uX + cx) / 2;
+        const midY = (uY + cy) / 2 - dist * 0.15; // curve upward
+        ctx.strokeStyle = `rgba(239, 68, 68, 0.07)`;
+        ctx.lineWidth = 0.6;
+        ctx.beginPath();
+        ctx.moveTo(uX, uY);
+        ctx.quadraticCurveTo(midX, midY, cx, cy);
+        ctx.stroke();
+
+        // Animated data packet traveling along the arc
+        const speed = 0.3 + (city.lon % 7) * 0.05;
+        const progress = ((t * speed + city.lat * 0.01) % 1);
+        const inv = 1 - progress;
+        const packetX = inv * inv * uX + 2 * inv * progress * midX + progress * progress * cx;
+        const packetY = inv * inv * uY + 2 * inv * progress * midY + progress * progress * cy;
+
+        ctx.fillStyle = `rgba(239, 68, 68, ${0.6 + Math.sin(t * 5) * 0.3})`;
+        ctx.beginPath();
+        ctx.arc(packetX, packetY, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Second packet going reverse
+        const prog2 = ((t * speed * 0.7 + city.lon * 0.02 + 0.5) % 1);
+        const inv2 = 1 - prog2;
+        const p2x = inv2 * inv2 * cx + 2 * inv2 * prog2 * midX + prog2 * prog2 * uX;
+        const p2y = inv2 * inv2 * cy + 2 * inv2 * prog2 * midY + prog2 * prog2 * uY;
+        ctx.fillStyle = 'rgba(248, 113, 113, 0.4)';
+        ctx.beginPath();
+        ctx.arc(p2x, p2y, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // --- User location marker ---
       // Multiple expanding pulse rings
       for (let ring = 0; ring < 3; ring++) {
-        const offset = ring * 20;
-        const pulseR = ((t * 18 + offset) % 50);
-        const alpha = Math.max(0, 1 - pulseR / 50) * 0.35;
+        const offset = ring * 18;
+        const pulseR = ((t * 25 + offset) % 45);
+        const alpha = Math.max(0, 1 - pulseR / 45) * 0.3;
         ctx.strokeStyle = `rgba(239, 68, 68, ${alpha})`;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.arc(uX, uY, pulseR, 0, Math.PI * 2);
         ctx.stroke();
       }
 
       // Glow halo
-      const pulseGlow = Math.sin(t * 2) * 0.3 + 0.7;
-      ctx.fillStyle = `rgba(239, 68, 68, ${pulseGlow * 0.2})`;
+      const haloGrad = ctx.createRadialGradient(uX, uY, 0, uX, uY, 20);
+      haloGrad.addColorStop(0, 'rgba(239, 68, 68, 0.15)');
+      haloGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      ctx.fillStyle = haloGrad;
       ctx.beginPath();
-      ctx.arc(uX, uY, 12, 0, Math.PI * 2);
+      ctx.arc(uX, uY, 20, 0, Math.PI * 2);
       ctx.fill();
 
-      // Center locator dot
+      // Center dot
       ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.arc(uX, uY, 3.5, 0, Math.PI * 2);
+      ctx.arc(uX, uY, 4, 0, Math.PI * 2);
       ctx.fill();
 
-      // Crosshair
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([4, 3]);
+      // Rotating targeting brackets
+      ctx.save();
+      ctx.translate(uX, uY);
+      ctx.rotate(t * 0.5);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.lineWidth = 1;
+      const bSize = 12;
+      // Top-left bracket
+      ctx.beginPath(); ctx.moveTo(-bSize, -bSize + 4); ctx.lineTo(-bSize, -bSize); ctx.lineTo(-bSize + 4, -bSize); ctx.stroke();
+      // Top-right bracket
+      ctx.beginPath(); ctx.moveTo(bSize - 4, -bSize); ctx.lineTo(bSize, -bSize); ctx.lineTo(bSize, -bSize + 4); ctx.stroke();
+      // Bottom-right bracket
+      ctx.beginPath(); ctx.moveTo(bSize, bSize - 4); ctx.lineTo(bSize, bSize); ctx.lineTo(bSize - 4, bSize); ctx.stroke();
+      // Bottom-left bracket
+      ctx.beginPath(); ctx.moveTo(-bSize + 4, bSize); ctx.lineTo(-bSize, bSize); ctx.lineTo(-bSize, bSize - 4); ctx.stroke();
+      ctx.restore();
+
+      // Dashed crosshair
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.2)';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([3, 3]);
       ctx.beginPath();
-      ctx.moveTo(uX - 35, uY);
-      ctx.lineTo(uX + 35, uY);
-      ctx.moveTo(uX, uY - 35);
-      ctx.lineTo(uX, uY + 35);
+      ctx.moveTo(uX - 30, uY); ctx.lineTo(uX + 30, uY);
+      ctx.moveTo(uX, uY - 30); ctx.lineTo(uX, uY + 30);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Text label
+      // Location text label
       ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
       ctx.font = '10px "Share Tech Mono", monospace';
-      ctx.fillText(`${loc.city.toUpperCase()}, ${loc.country.toUpperCase()}`, uX + 14, uY - 8);
+      ctx.fillText(`${loc.city.toUpperCase()}, ${loc.country.toUpperCase()}`, uX + 18, uY - 10);
       ctx.fillStyle = 'rgba(239, 68, 68, 0.5)';
       ctx.font = '8px "Share Tech Mono", monospace';
-      ctx.fillText(`${loc.lat.toFixed(4)}° N  ${loc.lon.toFixed(4)}° E`, uX + 14, uY + 4);
-      ctx.fillText(`IP: ${loc.ip}`, uX + 14, uY + 14);
+      ctx.fillText(`${loc.lat.toFixed(4)}°N  ${loc.lon.toFixed(4)}°E`, uX + 18, uY + 2);
+      ctx.fillText(`IP: ${loc.ip}`, uX + 18, uY + 12);
+
+      // Connection count badge
+      const connCount = connectionsRef.current.length;
+      if (connCount > 0) {
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+        ctx.font = '8px "Share Tech Mono", monospace';
+        ctx.fillText(`${connCount} ACTIVE CONNECTIONS`, uX + 18, uY + 22);
+      }
 
       raf = requestAnimationFrame(draw);
     };
@@ -226,7 +329,7 @@ export function WorldMapBackground() {
       window.removeEventListener('resize', resize);
       cancelAnimationFrame(raf);
     };
-  }, []); // empty deps = never restarts
+  }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 z-0 h-full w-full opacity-70" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 z-0 h-full w-full opacity-80" />;
 }

@@ -173,15 +173,12 @@ export default function App() {
       }
 
       // Send all real automation & AI queries to local FastAPI backend
+      // The backend handles AI inference using the API key saved in Settings
       setMessages((prev) => [...prev, userMsg]);
       setLoading(true);
       try {
         const desktopRes = await sendDesktopCommand(userText);
-        let responseText = desktopRes.response;
-        
-        if (desktopRes.intent?.intent === 'fallback') {
-          responseText = await askGroq(userText, selectedModel);
-        }
+        const responseText = desktopRes.response;
 
         const byteMsg: Message = {
           id: makeId(),
@@ -196,28 +193,13 @@ export default function App() {
         }
       } catch (err) {
         console.error('Desktop command execution error:', err);
-        // Fallback to Groq cloud if backend connection fails
-        try {
-          const cloudResp = await askGroq(userText, selectedModel);
-          const byteMsg: Message = {
-            id: makeId(),
-            role: 'byte',
-            text: cloudResp,
-            time: nowTime(),
-          };
-          setMessages((prev) => [...prev, byteMsg]);
-          if (!muted) {
-            setTimeout(() => speech.speak(cloudResp), 250);
-          }
-        } catch {
-          const byteMsg: Message = {
-            id: makeId(),
-            role: 'byte',
-            text: 'System command failed to execute. Verify backend engine is active on localhost:8000.',
-            time: nowTime(),
-          };
-          setMessages((prev) => [...prev, byteMsg]);
-        }
+        const byteMsg: Message = {
+          id: makeId(),
+          role: 'byte',
+          text: 'Backend engine offline. Please verify Python backend is running on localhost:8000. Start it with: python backend/main.py',
+          time: nowTime(),
+        };
+        setMessages((prev) => [...prev, byteMsg]);
       } finally {
         setLoading(false);
       }

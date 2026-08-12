@@ -245,6 +245,73 @@ class AutomationEngine:
         except Exception:
             pass
 
+        # Scan nearby WiFi networks
+        nearby_devices = []
+        try:
+            wifi_out = subprocess.check_output(
+                "netsh wlan show networks mode=bssid", shell=True, text=True, timeout=3
+            )
+            ssid = ""
+            signal = 0
+            bssid = ""
+            for line in wifi_out.splitlines():
+                line = line.strip()
+                if line.startswith("SSID") and "BSSID" not in line:
+                    ssid = line.split(":", 1)[1].strip() if ":" in line else ""
+                elif line.startswith("BSSID"):
+                    bssid = line.split(":", 1)[1].strip() if ":" in line else ""
+                elif line.startswith("Signal"):
+                    try:
+                        signal = int(line.split(":", 1)[1].strip().replace("%", ""))
+                    except Exception:
+                        signal = 50
+                    if ssid:
+                        h = hash(bssid or ssid)
+                        nearby_devices.append({
+                            "name": ssid or "Hidden Network",
+                            "type": "wifi",
+                            "signal": signal,
+                            "mac": bssid,
+                            "angle": abs(h) % 360,
+                            "distance": max(0.2, min(0.9, 1.0 - signal / 100.0))
+                        })
+                        ssid = ""
+                        bssid = ""
+                        signal = 0
+                    if len(nearby_devices) >= 15:
+                        break
+        except Exception:
+            pass
+
+        # Scan Bluetooth devices (Windows)
+        try:
+            bt_cmd = (
+                'powershell -Command "'
+                'Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | '
+                'Where-Object { $_.Status -eq \'OK\' } | '
+                'Select-Object -First 8 FriendlyName, InstanceId | '
+                'ForEach-Object { $_.FriendlyName + \'||\' + $_.InstanceId }'
+                '"'
+            )
+            bt_out = subprocess.check_output(bt_cmd, shell=True, text=True, timeout=4)
+            for line in bt_out.strip().splitlines():
+                parts = line.strip().split("||")
+                name = parts[0].strip() if parts else "BT Device"
+                dev_id = parts[1].strip() if len(parts) > 1 else name
+                if not name or name.lower() in ["", "bluetooth", "generic"]:
+                    continue
+                h = hash(dev_id)
+                nearby_devices.append({
+                    "name": name,
+                    "type": "bluetooth",
+                    "signal": 60,
+                    "mac": dev_id[:17] if dev_id else "",
+                    "angle": abs(h) % 360,
+                    "distance": 0.3 + (abs(h) % 40) / 100.0
+                })
+        except Exception:
+            pass
+
         return {
             "cpu_load": round(cpu_load, 1),
             "memory_percent": round(mem.percent, 1),
@@ -262,7 +329,8 @@ class AutomationEngine:
             "integrity": 100,
             "gpu": gpu_info,
             "location": geo_info,
-            "connections": conn_dots
+            "connections": conn_dots,
+            "nearby_devices": nearby_devices
         }
 
     def check_github_update(self) -> Dict[str, Any]:
