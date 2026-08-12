@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Shield, ShieldAlert, ShieldCheck, Crosshair, Eye, Lock } from 'lucide-react';
+import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 type ThreatLevel = 'GREEN' | 'YELLOW' | 'ORANGE' | 'RED';
 
@@ -19,17 +18,24 @@ export function ThreatPanel() {
   });
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setState((prev) => {
-        const newContacts = Math.max(0, prev.contacts + (Math.random() > 0.7 ? 1 : 0) - (Math.random() > 0.8 ? 1 : 0));
-        const newPerimeter = Math.max(85, Math.min(100, prev.perimeter + (Math.random() - 0.5) * 2));
-        const newIntegrity = Math.max(90, Math.min(100, prev.integrity + (Math.random() - 0.5) * 1));
-        const level: ThreatLevel =
-          newContacts >= 5 ? 'RED' : newContacts >= 3 ? 'ORANGE' : newContacts >= 1 ? 'YELLOW' : 'GREEN';
-        return { level, contacts: newContacts, perimeter: newPerimeter, integrity: newIntegrity };
-      });
-    }, 2000);
-    return () => clearInterval(interval);
+    let mounted = true;
+    const fetchLive = async () => {
+      const data = await fetchSystemTelemetry();
+      if (data && mounted) {
+        setState({
+          level: (data.threat_level as ThreatLevel) || 'GREEN',
+          contacts: Number(data.hostile_contacts || 0),
+          perimeter: Number(data.perimeter || 100),
+          integrity: Number(data.integrity || 100),
+        });
+      }
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 1500);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const levelColor = {

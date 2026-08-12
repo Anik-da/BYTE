@@ -151,6 +151,25 @@ class AutomationEngine:
         mem = psutil.virtual_memory()
         battery = psutil.sensors_battery()
         
+        # Calculate live network I/O activity
+        net_io = psutil.net_io_counters()
+        net_percent = min(100.0, round((net_io.bytes_sent + net_io.bytes_recv) / (1024 * 1024 * 5), 1))
+        
+        # System boot uptime
+        uptime_sec = int(time.time() - psutil.boot_time())
+        
+        # Temperature detection
+        temp = 42.0
+        try:
+            temps = psutil.sensors_temperatures()
+            if temps:
+                for k, v in temps.items():
+                    if v and len(v) > 0:
+                        temp = v[0].current
+                        break
+        except Exception:
+            pass
+
         gpu_info = {
             "gpu_name": "NVIDIA GeForce RTX 4060",
             "gpu_percent": 0,
@@ -175,13 +194,25 @@ class AutomationEngine:
         except Exception:
             pass
 
+        proc_count = len(psutil.pids())
+        threat_level = "YELLOW" if (cpu_load > 85 or mem.percent > 85) else "GREEN"
+        hostile_contacts = 1 if threat_level == "YELLOW" else 0
+
         return {
-            "cpu_load": cpu_load,
+            "cpu_load": round(cpu_load, 1),
+            "memory_percent": round(mem.percent, 1),
             "memory_used_mb": round(mem.used / (1024 * 1024), 1),
-            "memory_percent": mem.percent,
-            "battery_percent": battery.percent if battery else 100,
+            "network_percent": net_percent,
+            "battery_percent": round(battery.percent, 1) if battery else 100.0,
             "battery_plugged": battery.power_plugged if battery else True,
-            "processes_count": len(psutil.pids()),
+            "temperature": round(temp, 1),
+            "uptime": uptime_sec,
+            "processes_count": proc_count,
+            "max_processes": 1024,
+            "threat_level": threat_level,
+            "hostile_contacts": hostile_contacts,
+            "perimeter": 100,
+            "integrity": 100,
             "gpu": gpu_info
         }
 

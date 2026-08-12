@@ -182,3 +182,15 @@ export async function applyGitHubUpdate(): Promise<{ status: string; message: st
     return { status: "error", message: err.message || "Network request failed" };
   }
 }
+
+export async function fetchSystemTelemetry(): Promise<Record<string, any> | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/system_status`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Backend offline
+  }
+  return null;
+}

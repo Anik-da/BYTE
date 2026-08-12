@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Waveform } from './Waveform';
+import { fetchSystemTelemetry } from '@/lib/desktopApi';
 
 interface SystemStats {
   cpu: number;
@@ -8,31 +7,48 @@ interface SystemStats {
   power: number;
   temp: number;
   uptime: number;
+  processes: number;
+  maxProcesses: number;
+  threatLevel: string;
 }
 
 function useLiveStats() {
   const [stats, setStats] = useState<SystemStats>({
-    cpu: 32,
-    memory: 58,
-    network: 44,
-    power: 98,
-    temp: 41,
+    cpu: 18,
+    memory: 45,
+    network: 12,
+    power: 100,
+    temp: 42,
     uptime: 0,
+    processes: 120,
+    maxProcesses: 1024,
+    threatLevel: 'GREEN',
   });
 
   useEffect(() => {
-    const start = Date.now();
-    const interval = setInterval(() => {
-      setStats((prev) => ({
-        cpu: clamp(prev.cpu + rand(-8, 8), 18, 72),
-        memory: clamp(prev.memory + rand(-4, 4), 45, 78),
-        network: clamp(prev.network + rand(-12, 12), 20, 90),
-        power: clamp(prev.power + rand(-0.4, 0.4), 96, 99.9),
-        temp: clamp(prev.temp + rand(-1.5, 1.5), 38, 52),
-        uptime: Math.floor((Date.now() - start) / 1000),
-      }));
-    }, 1200);
-    return () => clearInterval(interval);
+    let mounted = true;
+    const fetchLive = async () => {
+      const data = await fetchSystemTelemetry();
+      if (data && mounted) {
+        setStats({
+          cpu: Number(data.cpu_load || 0),
+          memory: Number(data.memory_percent || 0),
+          network: Number(data.network_percent || 0),
+          power: Number(data.battery_percent || 100),
+          temp: Number(data.temperature || 42),
+          uptime: Number(data.uptime || 0),
+          processes: Number(data.processes_count || 120),
+          maxProcesses: Number(data.max_processes || 1024),
+          threatLevel: String(data.threat_level || 'GREEN'),
+        });
+      }
+    };
+    fetchLive();
+    const interval = setInterval(fetchLive, 1500);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return stats;
@@ -103,7 +119,7 @@ export function SystemPanel({ speaking, listening }: { speaking: boolean; listen
         </div>
         <div className="border border-hud-red/20 bg-hud-red/5 p-2">
           <div className="hud-text text-[10px] uppercase text-hud-red/60">Processes</div>
-          <div className="hud-mono text-sm text-hud-red">847 / 1024</div>
+          <div className="hud-mono text-sm text-hud-red">{stats.processes} / {stats.maxProcesses}</div>
         </div>
       </div>
 
@@ -120,9 +136,9 @@ export function SystemPanel({ speaking, listening }: { speaking: boolean; listen
         <div className="hud-mono text-[10px] leading-relaxed text-hud-red/40">
           {'> monitoring 14 subsystems'}
           <br />
-          {'> threat level: green'}
+          {`> threat level: ${stats.threatLevel.toLowerCase()}`}
           <br />
-          {'> last scan: 00:00:14 ago'}
+          {'> live status: synced'}
         </div>
       </div>
     </div>
