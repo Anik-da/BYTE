@@ -196,7 +196,8 @@ class AutomationEngine:
         elif intent == "in_app_action":
             action_type = data.get("action", "type") if data else "type"
             payload = data.get("payload", "") if data else ""
-            return self._execute_in_app_action(target or "", action_type, payload)
+            contact = data.get("contact", "") if data else ""
+            return self._execute_in_app_action(target or "", action_type, payload, contact=contact)
         elif intent == "play_media":
             return self._play_media(target or "")
         elif intent == "open_website":
@@ -210,13 +211,14 @@ class AutomationEngine:
         else:
             return {"status": "skipped", "message": "No automation required for intent"}
 
-    def _execute_in_app_action(self, target_app: str, action: str, payload: str) -> Dict[str, Any]:
+    def _execute_in_app_action(self, target_app: str, action: str, payload: str, contact: str = "") -> Dict[str, Any]:
         """
         Executes inside-application automation (typing messages, sending texts, making calls, writing notes).
         """
         app_lower = target_app.lower().strip()
         action_lower = action.lower().strip()
         payload_clean = payload.strip()
+        contact_clean = contact.strip()
 
         # 1. Open/Focus target application
         self._open_app(app_lower)
@@ -224,33 +226,39 @@ class AutomationEngine:
 
         # 2. WhatsApp In-App Messaging & Calling
         if "whatsapp" in app_lower:
+            target_person = contact_clean or payload_clean
             if "call" in action_lower:
                 try:
                     import pyautogui
                     pyautogui.hotkey('ctrl', 'f')
                     time.sleep(0.4)
-                    pyautogui.write(payload_clean, interval=0.03)
+                    pyautogui.write(target_person, interval=0.03)
                     time.sleep(0.5)
                     pyautogui.press('enter')
                     time.sleep(0.5)
                     pyautogui.hotkey('ctrl', 'shift', 'c')
-                    return {"status": "success", "message": f"Initiated WhatsApp call to '{payload_clean}'."}
+                    return {"status": "success", "message": f"Initiated WhatsApp call to '{target_person}'."}
                 except Exception as e:
                     return {"status": "error", "message": f"WhatsApp call error: {str(e)}"}
             else:
                 try:
                     import pyautogui
                     text_msg = payload_clean
-                    contact = ""
-                    if " to " in payload_clean:
-                        parts = payload_clean.split(" to ")
-                        text_msg = parts[0].strip()
-                        contact = parts[1].strip()
 
-                    if contact:
+                    if contact_clean:
                         pyautogui.hotkey('ctrl', 'f')
                         time.sleep(0.4)
-                        pyautogui.write(contact, interval=0.03)
+                        pyautogui.write(contact_clean, interval=0.03)
+                        time.sleep(0.5)
+                        pyautogui.press('enter')
+                        time.sleep(0.5)
+                    elif " to " in payload_clean:
+                        parts = payload_clean.split(" to ")
+                        text_msg = parts[0].strip()
+                        c_person = parts[1].strip()
+                        pyautogui.hotkey('ctrl', 'f')
+                        time.sleep(0.4)
+                        pyautogui.write(c_person, interval=0.03)
                         time.sleep(0.5)
                         pyautogui.press('enter')
                         time.sleep(0.5)
@@ -258,7 +266,8 @@ class AutomationEngine:
                     pyautogui.write(text_msg, interval=0.02)
                     time.sleep(0.3)
                     pyautogui.press('enter')
-                    return {"status": "success", "message": f"Sent WhatsApp message: '{text_msg}'."}
+                    dest_str = f" to '{contact_clean}'" if contact_clean else ""
+                    return {"status": "success", "message": f"Sent WhatsApp message{dest_str}: '{text_msg}'."}
                 except Exception as e:
                     return {"status": "error", "message": f"WhatsApp message error: {str(e)}"}
 

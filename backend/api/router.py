@@ -1,10 +1,11 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, File, UploadFile
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 
 from backend.ai.engine import ai_engine
 from backend.automation.engine import automation_engine
 from backend.vision.engine import vision_engine
+from backend.voice.engine import voice_engine
 from backend.memory.db import (
     save_message,
     get_history,
@@ -53,6 +54,12 @@ async def apply_github_update():
 @router.get("/vision/analyze")
 async def analyze_screen_vision():
     return vision_engine.analyze_screen()
+
+@router.post("/voice/transcribe")
+async def transcribe_voice(file: UploadFile = File(...)):
+    contents = await file.read()
+    text = await voice_engine.transcribe_audio_file(contents, filename=file.filename or "audio.webm")
+    return {"status": "success", "transcript": text}
 
 @router.post("/process_command")
 async def process_command(req: CommandRequest):

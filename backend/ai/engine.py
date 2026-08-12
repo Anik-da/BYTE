@@ -84,25 +84,44 @@ class AIEngine:
                     "requires_confirmation": False
                 }
 
-        # 4. In-App Automation Intent (typing text, sending messages, calling inside apps)
+        # 4. In-App Automation Intent (messaging, calling, typing inside apps)
+        msg_m = re.search(r'\b(?:send\s+(?:a\s+)?message)\s+(?:to\s+([a-z0-9\s]+?)\s+(?:that|saying)\s+(.+)|(.+?)\s+to\s+([a-z0-9\s]+))', text_lower)
+        if msg_m:
+            target_app = "whatsapp" if "whatsapp" in text_lower else "whatsapp"
+            if msg_m.group(1) and msg_m.group(2):
+                contact = msg_m.group(1).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+                msg = msg_m.group(2).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+            else:
+                msg = msg_m.group(3).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+                contact = msg_m.group(4).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+            return {
+                "intent": "in_app_action",
+                "target": target_app,
+                "action": "send_message",
+                "contact": contact,
+                "payload": msg,
+                "requires_confirmation": False
+            }
+
+        tell_m = re.search(r'\b(?:tell|whatsapp|message|text)\s+([a-z0-9\s]+?)\s+(?:that|saying)\s+(.+)', text_lower)
+        if tell_m:
+            target_app = "whatsapp" if "whatsapp" in text_lower else "whatsapp"
+            contact = tell_m.group(1).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+            msg = tell_m.group(2).replace("on whatsapp", "").replace("in whatsapp", "").strip()
+            return {
+                "intent": "in_app_action",
+                "target": target_app,
+                "action": "send_message",
+                "contact": contact,
+                "payload": msg,
+                "requires_confirmation": False
+            }
+
         in_app_match = re.search(r'\b(open|launch|run|start)?\s*([a-z0-9\s]+?)\s+(and|to)\s+(write|type|send|message|call|text)\s+(.+)', text_lower)
         if in_app_match:
             app_name = in_app_match.group(2).strip()
             action_type = in_app_match.group(4).strip()
             payload = in_app_match.group(5).strip()
-            return {
-                "intent": "in_app_action",
-                "target": app_name,
-                "action": action_type,
-                "payload": payload,
-                "requires_confirmation": False
-            }
-
-        msg_match = re.search(r'\b(send message|message|send text|call|type|write)\s+(.+?)\s+(on|in|to)\s+([a-z0-9\s]+)', text_lower)
-        if msg_match:
-            action_type = msg_match.group(1).strip()
-            payload = msg_match.group(2).strip()
-            app_name = msg_match.group(4).strip()
             return {
                 "intent": "in_app_action",
                 "target": app_name,

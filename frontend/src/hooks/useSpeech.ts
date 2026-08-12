@@ -175,43 +175,92 @@ export function useSpeech(): SpeechHook {
     return rec;
   }, []);
 
-  const startListening = useCallback(async () => {
-    // 1. Explicitly request Microphone Permission for Windows WebView2
-    try {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Stream acquired successfully; release stream tracks when using WebSpeech
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    } catch (err) {
-      console.warn("Microphone permission error:", err);
-      setError("Microphone permission denied by Windows system settings.");
-      return;
-    }
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
-    const rec = ensureRecognition();
-    if (!rec) {
-      setError('Speech recognition not supported in this environment.');
-      return;
-    }
-    // cancel any ongoing speech output so mic doesn't hear assistant output
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    setSpeaking(false);
+  const startListening = useCallback(async () => {
     finalTranscriptRef.current = '';
     setTranscript('');
     setInterim('');
+    setError(null);
     manualStopRef.current = false;
+    audioChunksRef.current = [];
+
+    // Cancel speech output
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    setSpeaking(false);
+
+    // 1. Start MediaRecorder for guaranteed backend AI Whisper transcription
     try {
-      rec.start();
-    } catch (e) {
-      console.warn("Recognition start error:", e);
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaStreamRef.current = stream;
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+        const recorder = new MediaRecorder(stream, { mimeType });
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunksRef.current.push(e.data);
+        };
+        recorder.start(200);
+        mediaRecorderRef.current = recorder;
+        setListening(true);
+      }
+    } catch (err) {
+      console.warn("Microphone access error:", err);
+      setError("Microphone permission denied.");
+    }
+
+    // 2. Try WebSpeech API parallel recognition
+    const rec = ensureRecognition();
+    if (rec) {
+      try {
+        rec.start();
+      } catch (e) {
+        // Recognition already active
+      }
     }
   }, [ensureRecognition]);
 
-  const stopListening = useCallback(() => {
+  const stopListening = useCallback(async () => {
     manualStopRef.current = true;
-    recognitionRef.current?.stop();
     setListening(false);
+
+    // Stop WebSpeech
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+    }
+
+    // Stop MediaRecorder and transcribe via backend AI if needed
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setTimeout(async () => {
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+        }
+        if (audioChunksRef.current.length > 0) {
+          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          if (!finalTranscriptRef.current.trim() && blob.size > 1000) {
+            try {
+              const formData = new FormData();
+              formData.append('file', blob, 'recording.webm');
+              const res = await fetch('http://127.0.0.1:8000/api/voice/transcribe', {
+                method: 'POST',
+                body: formData,
+              });
+              const data = await res.json();
+              if (data.transcript && data.transcript.trim()) {
+                finalTranscriptRef.current = data.transcript.trim();
+                setTranscript(data.transcript.trim());
+              }
+            } catch (err) {
+              console.warn("Backend transcription fallback error:", err);
+            }
+          }
+        }
+      }, 300);
+    }
   }, []);
 
   const speak = useCallback(
