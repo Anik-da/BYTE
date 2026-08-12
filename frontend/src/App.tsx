@@ -17,7 +17,7 @@ import { parseCommand } from '@/lib/commandEngine';
 import { askGroq, type GroqModel } from '@/lib/groq';
 import { FileNavigator } from '@/components/FileNavigator';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { sendDesktopCommand, fetchConversationHistory, fetchBackendSettings, saveBackendSettings } from '@/lib/desktopApi';
+import { sendDesktopCommand, fetchConversationHistory, clearConversationHistory, fetchBackendSettings, saveBackendSettings } from '@/lib/desktopApi';
 import { UpdateDialog } from '@/components/UpdateDialog';
 import { checkForUpdate } from '@/lib/updater';
 import { Update } from '@tauri-apps/plugin-updater';
@@ -279,6 +279,11 @@ export default function App() {
     });
   }, [speech]);
 
+  const handleClearHistory = useCallback(async () => {
+    await clearConversationHistory();
+    setMessages([]);
+  }, []);
+
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-radial-fade bg-grid text-red-50">
       {/* Ambient scanline overlay */}
@@ -431,6 +436,7 @@ export default function App() {
                   aiProvider={aiProvider}
                   ollamaModel={ollamaModel}
                   onUpdateModelSetting={handleUpdateModelSetting}
+                  onClearHistory={handleClearHistory}
                   loading={loading}
                 />
               </div>
@@ -455,6 +461,7 @@ export default function App() {
                 aiProvider={aiProvider}
                 ollamaModel={ollamaModel}
                 onUpdateModelSetting={handleUpdateModelSetting}
+                onClearHistory={handleClearHistory}
                 loading={loading}
               />
             </div>

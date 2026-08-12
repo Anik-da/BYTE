@@ -79,6 +79,16 @@ def init_db():
     )
     """)
     
+    # Lifetime memory facts table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS lifetime_facts (
+        key TEXT PRIMARY KEY,
+        fact TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
     for key, val in default_settings.items():
         cursor.execute("""
         INSERT OR IGNORE INTO system_settings (key, value) VALUES (?, ?)
@@ -109,6 +119,68 @@ def get_history(limit: int = 50) -> List[Dict[str, Any]]:
     rows = cursor.fetchall()
     conn.close()
     return [dict(r) for r in reversed(rows)]
+
+def clear_conversation_history() -> int:
+    """Clears short-term conversation logs while leaving permanent lifetime memory facts untouched."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM conversation_history")
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+def auto_prune_conversation_history(max_keep: int = 30):
+    """Automatically prunes obsolete short-term messages to keep memory efficient, while keeping lifetime facts permanent."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+    DELETE FROM conversation_history
+    WHERE id NOT IN (
+        SELECT id FROM conversation_history
+        ORDER BY id DESC LIMIT ?
+    )
+    """, (max_keep,))
+    conn.commit()
+    conn.close()
+
+def delete_conversation_message(msg_id: int) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM conversation_history WHERE id = ?", (msg_id,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
+
+def save_lifetime_fact(key: str, fact: str, category: str = "general") -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+    INSERT OR REPLACE INTO lifetime_facts (key, fact, category)
+    VALUES (?, ?, ?)
+    """, (key, fact, category))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_lifetime_facts() -> List[Dict[str, Any]]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT key, fact, category, timestamp FROM lifetime_facts ORDER BY timestamp DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def delete_lifetime_fact(key: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM lifetime_facts WHERE key = ?", (key,))
+    deleted = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return deleted
 
 def get_settings() -> Dict[str, Any]:
     conn = sqlite3.connect(DB_PATH)

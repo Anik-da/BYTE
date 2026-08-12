@@ -15,6 +15,14 @@ class AIEngine:
         """
         text_lower = text.lower().strip()
         
+        # 0. Vision / Screen Context Intent
+        if any(kw in text_lower for kw in ["what is on my screen", "what am i looking at", "describe my screen", "read screen", "screen analysis", "check my screen", "what is open on screen", "screen info", "screen status"]):
+            return {
+                "intent": "vision_analyze_screen",
+                "target": "screen",
+                "requires_confirmation": False
+            }
+
         # 1. YouTube Intent
         if "youtube" in text_lower or "yt" in text_lower:
             query = re.sub(r'^(open|launch)?\s*(youtube|yt)\s*(and\s+)?(play|search|find|watch)?\s*', '', text_lower)
@@ -113,14 +121,33 @@ class AIEngine:
         if not settings:
             settings = get_settings()
 
-        # Build context messages from past SQLite history
-        from backend.memory.db import get_history
+        from backend.memory.db import get_history, get_lifetime_facts, save_lifetime_fact
+        from backend.memory.mongo import mongo_storage
+
+        # Auto-detect lifetime fact storage commands (e.g., "remember that...", "my name is...", "keep in memory...")
+        prompt_lower = prompt.lower().strip()
+        if any(kw in prompt_lower for kw in ["remember that", "remember:", "my name is", "my preferred", "keep in memory"]):
+            fact_key = f"fact_{int(os.urandom(4).hex(), 16)}"
+            save_lifetime_fact(fact_key, prompt)
+            mongo_storage.save_lifetime_fact(fact_key, prompt)
+
+        # Build context messages from past SQLite history and lifetime facts
         history = get_history(limit=10)
+        lifetime_facts = get_lifetime_facts()
         
+        system_content = (
+            "You are BYTE (Beyond Your Tactical Envelope), an advanced natural-language tactical AI desktop assistant. "
+            "Always remember past context from previous turns in the conversation to provide coherent, helpful, and contextual responses."
+        )
+
+        if lifetime_facts:
+            facts_str = "\n".join([f"- {f['fact']}" for f in lifetime_facts])
+            system_content += f"\n\n[BYTE PERMANENT LIFETIME MEMORY (LIFETIME FACTS)]:\n{facts_str}"
+
         messages = [
             {
                 "role": "system",
-                "content": "You are BYTE (Beyond Your Tactical Envelope), an advanced natural-language tactical AI desktop assistant. Always remember past context from previous turns in the conversation to provide coherent, helpful, and contextual responses."
+                "content": system_content
             }
         ]
         

@@ -99,3 +99,61 @@ export async function fetchConversationHistory(): Promise<Array<{ id: string; ro
   }
   return [];
 }
+
+export async function clearConversationHistory(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/clear`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteHistoryMessage(msgId: string | number): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/history/${msgId}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchLifetimeFacts(): Promise<Array<{ key: string; fact: string; category?: string; timestamp?: string }>> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/lifetime`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Return empty fallback array
+  }
+  return [];
+}
+
+export async function saveLifetimeFact(key: string, fact: string, category: string = "general"): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/lifetime`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, fact, category }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteLifetimeFact(key: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/memory/lifetime/${key}`, {
+      method: "DELETE",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

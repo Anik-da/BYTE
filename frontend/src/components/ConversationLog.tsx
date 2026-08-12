@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Mic, MicOff, Send, Volume2, VolumeX } from 'lucide-react';
+import { Mic, MicOff, Send, Volume2, VolumeX, Trash2 } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -25,6 +25,7 @@ interface ConversationLogProps {
   aiProvider?: 'ollama' | 'groq';
   ollamaModel?: string;
   onUpdateModelSetting?: (provider: 'ollama' | 'groq', model: string) => void;
+  onClearHistory?: () => void;
   loading: boolean;
 }
 
@@ -45,6 +46,7 @@ export function ConversationLog({
   aiProvider = 'groq',
   ollamaModel = 'llama3',
   onUpdateModelSetting,
+  onClearHistory,
   loading,
 }: ConversationLogProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +111,15 @@ export function ConversationLog({
               </>
             )}
           </select>
+          {onClearHistory && (
+            <button
+              onClick={onClearHistory}
+              title="Clear non-required conversations from DB (Preserves permanent lifetime memory)"
+              className="flex items-center justify-center p-1 border border-hud-red/40 bg-slate-950/60 text-hud-red hover:bg-hud-red/20 transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
           <span className="hud-mono text-[10px] text-hud-red/50">
             {messages.length} {messages.length === 1 ? 'ENTRY' : 'ENTRIES'}
           </span>
