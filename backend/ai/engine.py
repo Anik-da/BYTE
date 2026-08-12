@@ -274,11 +274,27 @@ class AIEngine:
             api_key = os.environ.get("VITE_GROQ_API_KEY") or os.environ.get("GROQ_API_KEY", "")
         
         if not api_key:
-            # Automatic fallback to free OpenRouter model if Groq key is unconfigured
-            openrouter_resp = await self._query_openrouter(messages, "liquid/lfm-2.5-2.6b:free", None)
-            if not openrouter_resp.startswith("[OpenRouter"):
-                return openrouter_resp
-            return "[BYTE System] Groq API key is missing. Please enter your Groq API key in Settings, or select OpenRouter in the model dropdown."
+            # Check if OpenRouter key is set
+            openrouter_api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("VITE_OPENROUTER_API_KEY") or ""
+            if openrouter_api_key:
+                return await self._query_openrouter(messages, "liquid/lfm-2.5-2.6b:free", openrouter_api_key)
+            
+            # Intelligent response + clear guidance when no cloud API key is set yet
+            user_last = messages[-1]["content"] if messages else ""
+            if user_last.strip().lower() in ["hi", "hello", "hey", "test", "ping"]:
+                return (
+                    f"Hello! BYTE Assistant is online and operational.\n\n"
+                    "⚙️ **Cloud AI Key Notice**:\n"
+                    "You currently have **Groq Cloud** selected, but no Groq API Key has been entered yet.\n\n"
+                    "**To enable full Cloud AI responses:**\n"
+                    "1. Click **SETTINGS** (top right) -> **AI Engine** -> Paste your free Groq key (`gsk_...`).\n"
+                    "2. Or click the dropdown above Communication Log and switch to **Ollama (100% Free Offline Local AI)**."
+                )
+            
+            return (
+                f"[BYTE System] Groq Cloud selected, but no API Key found.\n\n"
+                "Please paste your free Groq API key (`gsk_...`) in **SETTINGS -> AI Engine**, or switch to **Ollama** or **OpenRouter** in the top model dropdown menu."
+            )
         
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
