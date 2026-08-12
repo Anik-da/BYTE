@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Mic, MicOff, Send, Volume2, VolumeX, Trash2 } from 'lucide-react';
+import { soundFx } from '@/lib/soundFx';
 
 export interface Message {
   id: string;
@@ -57,10 +58,22 @@ export function ConversationLog({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, interim]);
 
+  const handleSendAction = () => {
+    if (input.trim()) {
+      soundFx.playTransmission();
+      onSend();
+    }
+  };
+
+  const handleListenAction = () => {
+    soundFx.playListeningPulse();
+    onToggleListen();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      handleSendAction();
     }
   };
 
@@ -200,7 +213,7 @@ export function ConversationLog({
 
       <div className="mt-3 flex items-center gap-2">
         <button
-          onClick={onToggleListen}
+          onClick={handleListenAction}
           disabled={!speechSupported}
           className={`flex h-10 w-10 shrink-0 items-center justify-center border transition-all ${
             !speechSupported
@@ -223,7 +236,7 @@ export function ConversationLog({
         />
 
         <button
-          onClick={onSend}
+          onClick={handleSendAction}
           disabled={!input.trim()}
           className="flex h-10 w-10 shrink-0 items-center justify-center border border-hud-red/40 bg-hud-red/10 text-hud-red transition-all hover:bg-hud-red/20 disabled:cursor-not-allowed disabled:opacity-30"
           title="Send"

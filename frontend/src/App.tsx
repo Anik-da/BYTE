@@ -369,6 +369,7 @@ export default function App() {
                   active={booted}
                   speaking={speech.speaking}
                   listening={speech.listening}
+                  onClick={handleToggleListen}
                 />
                 <div className="mt-3 text-center">
                   <div className="hud-display text-2xl font-black tracking-[0.3em] text-hud-red hud-glow-strong">

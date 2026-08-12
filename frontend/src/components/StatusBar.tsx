@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Activity, Cpu, Wifi, Shield, Clock, Sliders } from 'lucide-react';
+import { soundFx } from '@/lib/soundFx';
 
 export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [now, setNow] = useState(new Date());
@@ -8,6 +9,11 @@ export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleSettingsClick = () => {
+    soundFx.playBeep(1200, 0.04);
+    onOpenSettings?.();
+  };
 
   return (
     <div className="hud-panel hud-corner flex items-center justify-between px-4 py-2">
@@ -37,7 +43,7 @@ export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
       <div className="flex items-center gap-3">
         {onOpenSettings && (
           <button
-            onClick={onOpenSettings}
+            onClick={handleSettingsClick}
             className="flex items-center gap-1 border border-hud-red/30 bg-hud-red/10 px-2 py-0.5 hud-mono text-[10px] uppercase text-hud-red transition-all hover:bg-hud-red/25"
             title="Open Desktop & AI Settings"
           >
