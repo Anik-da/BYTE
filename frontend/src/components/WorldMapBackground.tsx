@@ -172,8 +172,8 @@ export function WorldMapBackground() {
       // --- Draw Realistic High-Definition World Map ---
       if (mapImageRef.current) {
         ctx.save();
-        // Set slightly lower opacity for a subtle tactical background look
-        ctx.globalAlpha = 0.18;
+        // Set slightly higher opacity for better visibility
+        ctx.globalAlpha = 0.35;
         ctx.drawImage(mapImageRef.current, 0, 0, w, h);
         ctx.globalCompositeOperation = 'source-in';
         ctx.fillStyle = 'rgb(239, 68, 68)';
