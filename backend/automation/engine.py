@@ -101,6 +101,35 @@ def find_native_app(app_name: str) -> Optional[str]:
 
     return None
 
+def focus_window_by_name(name: str) -> bool:
+    """Restores and brings target application window directly to the screen foreground."""
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        name_lower = name.lower().strip()
+        found = [False]
+
+        def cb(hwnd, extra):
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                    title = buf.value.strip()
+                    if name_lower in title.lower():
+                        user32.ShowWindow(hwnd, 9) # SW_RESTORE
+                        user32.SetForegroundWindow(hwnd)
+                        user32.BringWindowToTop(hwnd)
+                        found[0] = True
+                        return False
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+        user32.EnumWindows(WNDENUMPROC(cb), 0)
+        return found[0]
+    except Exception:
+        return False
+
 def trigger_media_key_play():
     """Simulates media play/pause or enter key press after opening player."""
     try:
@@ -222,7 +251,9 @@ class AutomationEngine:
 
         # 1. Open/Focus target application
         self._open_app(app_lower)
-        time.sleep(1.5)
+        time.sleep(1.0)
+        focus_window_by_name(app_lower)
+        time.sleep(1.0)
 
         # 2. WhatsApp In-App Messaging & Calling
         if "whatsapp" in app_lower:
@@ -231,11 +262,12 @@ class AutomationEngine:
                 try:
                     import pyautogui
                     pyautogui.hotkey('ctrl', 'f')
-                    time.sleep(0.4)
+                    time.sleep(0.5)
                     pyautogui.write(target_person, interval=0.03)
-                    time.sleep(0.5)
+                    time.sleep(0.6)
+                    pyautogui.press('down')
                     pyautogui.press('enter')
-                    time.sleep(0.5)
+                    time.sleep(0.8)
                     pyautogui.hotkey('ctrl', 'shift', 'c')
                     return {"status": "success", "message": f"Initiated WhatsApp call to '{target_person}'."}
                 except Exception as e:
@@ -244,29 +276,29 @@ class AutomationEngine:
                 try:
                     import pyautogui
                     text_msg = payload_clean
+                    c_person = contact_clean
 
-                    if contact_clean:
-                        pyautogui.hotkey('ctrl', 'f')
-                        time.sleep(0.4)
-                        pyautogui.write(contact_clean, interval=0.03)
-                        time.sleep(0.5)
-                        pyautogui.press('enter')
-                        time.sleep(0.5)
-                    elif " to " in payload_clean:
+                    if not c_person and " to " in payload_clean:
                         parts = payload_clean.split(" to ")
                         text_msg = parts[0].strip()
                         c_person = parts[1].strip()
-                        pyautogui.hotkey('ctrl', 'f')
-                        time.sleep(0.4)
-                        pyautogui.write(c_person, interval=0.03)
-                        time.sleep(0.5)
-                        pyautogui.press('enter')
-                        time.sleep(0.5)
 
+                    if c_person:
+                        # Focus search bar
+                        pyautogui.hotkey('ctrl', 'f')
+                        time.sleep(0.5)
+                        pyautogui.write(c_person, interval=0.03)
+                        time.sleep(0.6)
+                        # Select first contact from search results
+                        pyautogui.press('down')
+                        pyautogui.press('enter')
+                        time.sleep(0.8)
+
+                    # Type and send message
                     pyautogui.write(text_msg, interval=0.02)
-                    time.sleep(0.3)
+                    time.sleep(0.4)
                     pyautogui.press('enter')
-                    dest_str = f" to '{contact_clean}'" if contact_clean else ""
+                    dest_str = f" to '{c_person}'" if c_person else ""
                     return {"status": "success", "message": f"Sent WhatsApp message{dest_str}: '{text_msg}'."}
                 except Exception as e:
                     return {"status": "error", "message": f"WhatsApp message error: {str(e)}"}
@@ -293,6 +325,8 @@ class AutomationEngine:
                     os.startfile(native_path)
                 else:
                     subprocess.Popen(f'start "" "{native_path}"', shell=True)
+                time.sleep(1.0)
+                focus_window_by_name(app_name_lower)
                 return {"status": "success", "message": f"Successfully launched native desktop application '{app_name}'."}
             except Exception:
                 pass

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BootSequence } from '@/components/BootSequence';
 import { ArcReactor } from '@/components/ArcReactor';
 import { SystemPanel } from '@/components/SystemPanel';
+import { soundFx } from '@/lib/soundFx';
 import { ConversationLog, type Message } from '@/components/ConversationLog';
 import { DiagnosticsOverlay } from '@/components/DiagnosticsOverlay';
 import { StatusBar } from '@/components/StatusBar';
@@ -223,14 +224,14 @@ export default function App() {
     [muted, selectedModel]
   );
 
-  // Wake word detection ("Hey BYTE" / "BYTE") and transcript processing
+  // Wake word detection ("Hey BYTE" / "Jarvis" / "BYTE") and transcript processing
   const lastProcessedTranscriptRef = useRef('');
   useEffect(() => {
     const raw = (speech.transcript || speech.interim).trim();
     if (!raw) return;
 
     const lower = raw.toLowerCase();
-    const wakeWordPattern = /\b(hey\s+byte|byte|wake\s+up\s+byte)\b/i;
+    const wakeWordPattern = /\b(hey\s+byte|byte|hey\s+jarvis|jarvis|wake\s+up|wake\s+up\s+byte|hello\s+byte|ok\s+byte|computer)\b/i;
 
     if (wakeWordPattern.test(lower)) {
       const match = lower.match(wakeWordPattern);
@@ -240,17 +241,29 @@ export default function App() {
       if (extractedCommand && extractedCommand !== lastProcessedTranscriptRef.current) {
         lastProcessedTranscriptRef.current = extractedCommand;
         pendingTranscriptRef.current = false;
+        soundFx.playChirp();
         handleResult(extractedCommand);
+      } else if (!extractedCommand && !speech.speaking && !loading) {
+        // User spoke wake word alone; trigger instant listening response
+        const wakeText = "Yes? I'm listening.";
+        lastProcessedTranscriptRef.current = raw;
+        soundFx.playWakeChime();
+        setMessages((prev) => [
+          ...prev,
+          { id: makeId(), role: 'byte', text: wakeText, time: nowTime() }
+        ]);
+        speech.speak(wakeText, () => {
+          speech.startListening();
+        });
       }
-    } else if (!speech.listening && pendingTranscriptRef.current && speech.transcript) {
-      pendingTranscriptRef.current = false;
+    } else if (!speech.listening && speech.transcript) {
       const text = speech.transcript.trim();
       if (text && text !== lastProcessedTranscriptRef.current) {
         lastProcessedTranscriptRef.current = text;
         handleResult(text);
       }
     }
-  }, [speech.listening, speech.transcript, speech.interim, handleResult]);
+  }, [speech.listening, speech.transcript, speech.interim, speech.speaking, loading, handleResult]);
 
   const handleSend = useCallback(() => {
     const text = input.trim();

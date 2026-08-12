@@ -16,7 +16,12 @@ class AIEngine:
         text_lower = text.lower().strip()
         
         # 0. Vision / Screen Context Intent
-        if any(kw in text_lower for kw in ["what is on my screen", "what am i looking at", "describe my screen", "read screen", "screen analysis", "check my screen", "what is open on screen", "screen info", "screen status"]):
+        if any(kw in text_lower for kw in [
+            "screen", "looking at", "read screen", "check screen", "open on screen",
+            "opened in my screen", "running in my screen", "running on my screen",
+            "opened on my screen", "on my screen", "my device", "what is opened",
+            "what is happening", "screen info", "screen status", "see screen"
+        ]):
             return {
                 "intent": "vision_analyze_screen",
                 "target": "screen",

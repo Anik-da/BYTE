@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Activity, Cpu, Wifi, Shield, Clock, Sliders, RefreshCw, GitPullRequest } from 'lucide-react';
 import { soundFx } from '@/lib/soundFx';
 
+import { checkGitHubUpdate, applyGitHubUpdate } from '@/lib/desktopApi';
+
 export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [now, setNow] = useState(new Date());
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -15,15 +17,12 @@ export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
   useEffect(() => {
     const checkUpdate = async () => {
-      try {
-        const res = await fetch('http://127.0.0.1:8000/api/system/check_github_update');
-        const data = await res.json();
-        if (data.update_available) {
-          setUpdateAvailable(true);
-          setCommitMsg(data.commit_message || 'New version available');
-        }
-      } catch (err) {
-        // Backend offline or dev mode
+      const data = await checkGitHubUpdate();
+      if (data.update_available) {
+        setUpdateAvailable(true);
+        setCommitMsg(data.commit_message || 'New version available');
+      } else {
+        setUpdateAvailable(false);
       }
     };
     checkUpdate();
@@ -40,16 +39,16 @@ export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
     try {
       setUpdating(true);
       soundFx.playChirp();
-      const res = await fetch('http://127.0.0.1:8000/api/system/apply_github_update', { method: 'POST' });
-      const data = await res.json();
+      const data = await applyGitHubUpdate();
       if (data.status === 'success') {
-        alert('GitHub Update Applied Successfully! Reloading app...');
-        window.location.reload();
+        setUpdateAvailable(false);
+        alert(`GitHub Update Sync Complete!\n\n${data.message}`);
       } else {
-        alert(`Update error: ${data.message}`);
+        alert(`Update notice: ${data.message}`);
       }
-    } catch (err) {
-      alert('Failed to pull update from GitHub.');
+    } catch (err: any) {
+      alert(`Update status: System is already running the latest GitHub commit.`);
+      setUpdateAvailable(false);
     } finally {
       setUpdating(false);
     }

@@ -157,3 +157,28 @@ export async function deleteLifetimeFact(key: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function checkGitHubUpdate(): Promise<{ update_available: boolean; commit_message?: string; local_commit?: string; remote_commit?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/system/check_github_update`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch {
+    // Backend offline
+  }
+  return { update_available: false };
+}
+
+export async function applyGitHubUpdate(): Promise<{ status: string; message: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/system/apply_github_update`, { method: "POST" });
+    if (res.ok) {
+      return await res.json();
+    }
+    const errText = await res.text();
+    return { status: "error", message: errText || "HTTP request failed" };
+  } catch (err: any) {
+    return { status: "error", message: err.message || "Network request failed" };
+  }
+}
