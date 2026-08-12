@@ -245,8 +245,44 @@ class AutomationEngine:
         except Exception:
             pass
 
-        # Scan nearby WiFi networks
+        # Scan nearby WiFi networks & LAN dynamic hosts
         nearby_devices = []
+        
+        # 1. Real active LAN devices via ARP table
+        try:
+            arp_out = subprocess.check_output("arp -a", shell=True, text=True, timeout=3)
+            seen_ips = set()
+            for line in arp_out.splitlines():
+                line = line.strip()
+                if not line or "Interface" in line or "Internet Address" in line:
+                    continue
+                parts = line.split()
+                if len(parts) >= 3:
+                    ip = parts[0]
+                    mac = parts[1].replace("-", ":").upper()
+                    conn_type = parts[2].lower()
+                    
+                    # Filter out multicast, broadcast, and invalid loopbacks
+                    if (ip.startswith("224.") or ip.startswith("239.") or 
+                        ip == "255.255.255.255" or "FF:FF:FF:FF:FF:FF" in mac or 
+                        "01:00:5E" in mac or conn_type != "dynamic"):
+                        continue
+                    
+                    if ip not in seen_ips:
+                        seen_ips.add(ip)
+                        h = hash(mac or ip)
+                        nearby_devices.append({
+                            "name": f"LAN Host ({ip})",
+                            "type": "wifi",
+                            "signal": 75 + (abs(h) % 20),
+                            "mac": mac,
+                            "angle": abs(h) % 360,
+                            "distance": 0.2 + (abs(h) % 65) / 100.0
+                        })
+        except Exception:
+            pass
+
+        # 2. Nearby Wifi SSID scan
         try:
             wifi_out = subprocess.check_output(
                 "netsh wlan show networks mode=bssid", shell=True, text=True, timeout=3
@@ -268,47 +304,62 @@ class AutomationEngine:
                     if ssid:
                         h = hash(bssid or ssid)
                         nearby_devices.append({
-                            "name": ssid or "Hidden Network",
+                            "name": ssid or "Network AP",
                             "type": "wifi",
                             "signal": signal,
-                            "mac": bssid,
+                            "mac": bssid.upper(),
                             "angle": abs(h) % 360,
                             "distance": max(0.2, min(0.9, 1.0 - signal / 100.0))
                         })
                         ssid = ""
                         bssid = ""
                         signal = 0
-                    if len(nearby_devices) >= 15:
+                    if len(nearby_devices) >= 12:
                         break
         except Exception:
             pass
 
-        # Scan Bluetooth devices (Windows)
+        # 3. Scan real Bluetooth devices (Filter out virtual enumerators/drivers)
         try:
             bt_cmd = (
                 'powershell -Command "'
                 'Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | '
                 'Where-Object { $_.Status -eq \'OK\' } | '
-                'Select-Object -First 8 FriendlyName, InstanceId | '
+                'Select-Object FriendlyName, InstanceId | '
                 'ForEach-Object { $_.FriendlyName + \'||\' + $_.InstanceId }'
                 '"'
             )
             bt_out = subprocess.check_output(bt_cmd, shell=True, text=True, timeout=4)
+            seen_bt_names = set()
             for line in bt_out.strip().splitlines():
                 parts = line.strip().split("||")
-                name = parts[0].strip() if parts else "BT Device"
+                name = parts[0].strip() if parts else ""
                 dev_id = parts[1].strip() if len(parts) > 1 else name
-                if not name or name.lower() in ["", "bluetooth", "generic"]:
+                
+                if not name:
                     continue
-                h = hash(dev_id)
-                nearby_devices.append({
-                    "name": name,
-                    "type": "bluetooth",
-                    "signal": 60,
-                    "mac": dev_id[:17] if dev_id else "",
-                    "angle": abs(h) % 360,
-                    "distance": 0.3 + (abs(h) % 40) / 100.0
-                })
+                    
+                name_lower = name.lower()
+                # Exclude virtual enumerators, drivers, audio sinks, services, adapters
+                exclude_keywords = [
+                    "avrcp", "transport", "enumerator", "service", "adapter", 
+                    "controller", "protocol", "generic", "microsoft", "intel", 
+                    "rfcomm", "pan", "nap", "attribute", "access profile", "device"
+                ]
+                if any(kw in name_lower for kw in exclude_keywords):
+                    continue
+                    
+                if name not in seen_bt_names:
+                    seen_bt_names.add(name)
+                    h = hash(dev_id)
+                    nearby_devices.append({
+                        "name": name,
+                        "type": "bluetooth",
+                        "signal": 70,
+                        "mac": dev_id[:17] if dev_id else "",
+                        "angle": abs(h) % 360,
+                        "distance": 0.35 + (abs(h) % 45) / 100.0
+                    })
         except Exception:
             pass
 

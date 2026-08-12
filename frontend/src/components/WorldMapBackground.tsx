@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchSystemTelemetry } from '@/lib/desktopApi';
+import worldMapUrl from '../assets/world-map.svg';
 
 interface LocationInfo {
   lat: number;
@@ -57,12 +58,10 @@ export function WorldMapBackground() {
   const mapImageRef = useRef<HTMLImageElement | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Load realistic high-definition SVG world map
+  // Load realistic high-definition SVG world map from local package
   useEffect(() => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    // Clean, highly detailed vector world map outline from Wikimedia Commons
-    img.src = 'https://upload.wikimedia.org/wikipedia/commons/8/80/BlankMap-World.svg';
+    img.src = worldMapUrl;
     img.onload = () => {
       mapImageRef.current = img;
       setMapLoaded(true);
@@ -138,16 +137,15 @@ export function WorldMapBackground() {
       const h = canvas.height / dpr;
       ctx.clearRect(0, 0, w, h);
 
-      // standard Equirectangular projection mapping
+      // standard Equirectangular projection mapping calibrated for simple-world-map viewBox
       const toXY = (lat: number, lon: number): [number, number] => {
-        // Adjust linear mapping:
-        // Longitude: -180 to 180 maps to 0 to w
-        // Latitude: 90 to -90 maps to 0 to h (in canvas y goes down)
-        const x = ((lon + 180) / 360) * w;
-        // The BlankMap-World.svg uses equirectangular projection with standard scaling
-        // standard latitude crop top/bottom offsets matching standard maps
-        const y = h/2 - (lat * (h / 180)) * 0.95; 
-        return [x, y];
+        const svgX = 2.1755 * lon + 423.22;
+        const svgY = -3.031 * lat + 532.4;
+        
+        const canvasX = ((svgX - 30.767) / 784.077) * w;
+        const canvasY = ((svgY - 241.591) / 458.627) * h;
+        
+        return [canvasX, canvasY];
       };
 
       // --- Animated scanning grid ---
