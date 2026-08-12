@@ -68,7 +68,7 @@ async def process_command(req: CommandRequest):
     if intent == "vision_analyze_screen":
         action_result = vision_engine.analyze_screen()
         response_text = action_result.get("message", "Screen analysis complete.")
-    elif intent in ["open_application", "open_website", "system_command", "file_search", "kill_process"]:
+    elif intent in ["open_application", "play_media", "open_website", "system_command", "file_search", "kill_process"]:
         action_result = automation_engine.execute_action(intent=intent, target=target)
         response_text = action_result.get("message", "Task executed.")
     else:

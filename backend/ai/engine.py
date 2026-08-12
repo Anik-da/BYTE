@@ -23,25 +23,39 @@ class AIEngine:
                 "requires_confirmation": False
             }
 
-        # 1. YouTube Intent
-        if "youtube" in text_lower or "yt" in text_lower:
-            query = re.sub(r'^(open|launch)?\s*(youtube|yt)\s*(and\s+)?(play|search|find|watch)?\s*', '', text_lower)
-            query = re.sub(r'\s+on\s+(youtube|yt)$', '', query).strip()
-            target = f"https://www.youtube.com/results?search_query={query}" if query else "https://www.youtube.com"
+        # 1. Play Song / Media Intent ("play starboy", "play music on spotify", "play shape of you on youtube")
+        if text_lower.startswith("play ") or " play " in text_lower or text_lower.startswith("listen to "):
+            query = re.sub(r'^(play|listen to)\s+', '', text_lower).strip()
             return {
-                "intent": "open_website",
-                "target": target,
+                "intent": "play_media",
+                "target": query,
                 "requires_confirmation": False
             }
 
-        # 2. Spotify Intent
+        # 2. YouTube Intent
+        if "youtube" in text_lower or "yt" in text_lower:
+            query = re.sub(r'^(open|launch)?\s*(youtube|yt)\s*(and\s+)?(play|search|find|watch)?\s*', '', text_lower)
+            query = re.sub(r'\s+on\s+(youtube|yt)$', '', query).strip()
+            if query:
+                return {
+                    "intent": "play_media",
+                    "target": query,
+                    "requires_confirmation": False
+                }
+            return {
+                "intent": "open_application",
+                "target": "youtube",
+                "requires_confirmation": False
+            }
+
+        # 3. Spotify Intent
         if "spotify" in text_lower:
             query = re.sub(r'^(open|launch)?\s*spotify\s*(and\s+)?(play|listen to|search)?\s*', '', text_lower)
             query = re.sub(r'\s+on\s+spotify$', '', query).strip()
             if query:
                 return {
-                    "intent": "open_website",
-                    "target": f"https://open.spotify.com/search/{query}",
+                    "intent": "play_media",
+                    "target": f"{query} on spotify",
                     "requires_confirmation": False
                 }
             return {

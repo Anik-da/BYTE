@@ -1,8 +1,107 @@
 import os
+import re
+import shutil
 import subprocess
 import webbrowser
+import urllib.request
+import urllib.parse
 import psutil
 from typing import Dict, Any, Optional
+
+def find_native_app(app_name: str) -> Optional[str]:
+    """
+    Scans the device for native installed desktop applications across:
+    1. System PATH & standard executables
+    2. Common Windows Application Directories
+    3. Windows Start Menu Shortcuts (.lnk)
+    4. Windows Registry App Paths
+    5. Native URI Protocol handlers (spotify:, discord:, etc.)
+    """
+    app_lower = app_name.lower().strip()
+
+    # Direct System PATH / Executable check
+    bin_path = shutil.which(app_lower) or shutil.which(f"{app_lower}.exe")
+    if bin_path:
+        return bin_path
+
+    # Common Application mapping & URI protocols
+    app_mapping = {
+        "spotify": [
+            r"C:\Users\%USERNAME%\AppData\Roaming\Spotify\Spotify.exe",
+            r"C:\Users\%USERNAME%\AppData\Local\Microsoft\WindowsApps\Spotify.exe",
+            "spotify:"
+        ],
+        "discord": [
+            r"C:\Users\%USERNAME%\AppData\Local\Discord\Update.exe --processStart Discord.exe",
+            "discord:"
+        ],
+        "vscode": [r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe", "code"],
+        "vs code": [r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe", "code"],
+        "visual studio code": [r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe", "code"],
+        "chrome": [
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+        ],
+        "google chrome": [r"C:\Program Files\Google\Chrome\Application\chrome.exe"],
+        "edge": [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", "msedge"],
+        "microsoft edge": [r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
+        "notepad": ["notepad.exe"],
+        "calculator": ["calc.exe"],
+        "calc": ["calc.exe"],
+        "terminal": ["wt.exe", "cmd.exe"],
+        "cmd": ["cmd.exe"],
+        "command prompt": ["cmd.exe"],
+        "powershell": ["powershell.exe"],
+        "explorer": ["explorer.exe"],
+        "file explorer": ["explorer.exe"],
+        "vlc": [r"C:\Program Files\VideoLAN\VLC\vlc.exe", r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe"],
+        "whatsapp": [r"C:\Users\%USERNAME%\AppData\Local\WhatsApp\WhatsApp.exe", "whatsapp:"],
+        "telegram": [r"C:\Users\%USERNAME%\AppData\Roaming\Telegram Desktop\Telegram.exe", "tg:"],
+        "steam": [r"C:\Program Files (x86)\Steam\steam.exe", "steam:"]
+    }
+
+    if app_lower in app_mapping:
+        for candidate in app_mapping[app_lower]:
+            expanded = os.path.expandvars(candidate)
+            if candidate.endswith(":") or shutil.which(expanded) or os.path.exists(expanded):
+                return expanded
+
+    # Fast Windows Start Menu Shortcuts (.lnk) Search
+    start_dirs = [
+        os.path.expandvars(r'%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs'),
+        os.path.expandvars(r'%APPDATA%\Microsoft\Windows\Start Menu\Programs')
+    ]
+    for sdir in start_dirs:
+        if os.path.exists(sdir):
+            for root, dirs, files in os.walk(sdir):
+                for f in files:
+                    if f.lower().endswith('.lnk') and app_lower in f.lower():
+                        return os.path.join(root, f)
+
+    # Windows Registry App Paths Lookup
+    try:
+        import winreg
+        reg_keys = [
+            (winreg.HKEY_LOCAL_MACHINE, r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths'),
+            (winreg.HKEY_CURRENT_USER, r'SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths')
+        ]
+        for hkey, rpath in reg_keys:
+            try:
+                with winreg.OpenKey(hkey, rpath) as key:
+                    num_subkeys, _, _ = winreg.QueryInfoKey(key)
+                    for i in range(num_subkeys):
+                        subkey_name = winreg.EnumKey(key, i)
+                        if app_lower in subkey_name.lower():
+                            with winreg.OpenKey(key, subkey_name) as subkey:
+                                val, _ = winreg.QueryValueEx(subkey, '')
+                                if val and os.path.exists(os.path.expandvars(val)):
+                                    return os.path.expandvars(val)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    return None
 
 class AutomationEngine:
     def __init__(self):
@@ -53,6 +152,8 @@ class AutomationEngine:
         """
         if intent == "open_application":
             return self._open_app(target or "")
+        elif intent == "play_media":
+            return self._play_media(target or "")
         elif intent == "open_website":
             return self._open_website(target or "")
         elif intent == "system_command":
@@ -66,83 +167,103 @@ class AutomationEngine:
 
     def _open_app(self, app_name: str) -> Dict[str, Any]:
         app_name_lower = app_name.lower().strip()
-        
-        if "notepad" in app_name_lower:
-            try:
-                subprocess.Popen("notepad.exe")
-                return {"status": "success", "message": "Successfully launched 'Notepad'"}
-            except Exception as e:
-                return {"status": "error", "message": f"Failed to launch Notepad: {str(e)}"}
 
-        common_apps = {
-            "vscode": ["code", r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
-            "vs code": ["code", r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
-            "visual studio code": ["code", r"C:\Users\%USERNAME%\AppData\Local\Programs\Microsoft VS Code\Code.exe"],
-            "chrome": ["chrome", r"C:\Program Files\Google\Chrome\Application\chrome.exe", r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"],
-            "google chrome": ["chrome", r"C:\Program Files\Google\Chrome\Application\chrome.exe"],
-            "edge": ["msedge", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
-            "microsoft edge": ["msedge", r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"],
-            "calculator": ["calc"],
-            "calc": ["calc"],
-            "terminal": ["wt", "cmd"],
-            "cmd": ["cmd"],
-            "command prompt": ["cmd"],
-            "powershell": ["powershell"],
-            "explorer": ["explorer"],
-            "file explorer": ["explorer"],
-            "spotify": ["spotify", r"C:\Users\%USERNAME%\AppData\Roaming\Spotify\Spotify.exe"],
-            "discord": ["discord", r"C:\Users\%USERNAME%\AppData\Local\Discord\Update.exe --processStart Discord.exe"]
-        }
-        
-        if app_name_lower in common_apps:
-            candidates = common_apps[app_name_lower]
-            for candidate in candidates:
-                expanded = os.path.expandvars(candidate)
-                try:
-                    subprocess.Popen(f'start "" "{expanded}"', shell=True)
-                    return {"status": "success", "message": f"Successfully launched '{app_name}'"}
-                except Exception:
-                    continue
-        
-        # Check system PATH executable before trying raw shell start
-        import shutil
-        found_bin = shutil.which(app_name_lower)
-        if found_bin:
+        # 1. Search for native desktop app installed on device
+        native_path = find_native_app(app_name_lower)
+        if native_path:
             try:
-                subprocess.Popen([found_bin])
-                return {"status": "success", "message": f"Successfully launched '{app_name}'"}
-            except Exception:
+                if native_path.endswith(":"):
+                    subprocess.Popen(f'start "" "{native_path}"', shell=True)
+                elif native_path.lower().endswith(".lnk"):
+                    os.startfile(native_path)
+                else:
+                    subprocess.Popen(f'start "" "{native_path}"', shell=True)
+                return {"status": "success", "message": f"Successfully launched native desktop application '{app_name}'."}
+            except Exception as e:
                 pass
-                
-        # If binary is not installed locally, open web search cleanly without raising Windows error modal
-        search_url = f"https://www.google.com/search?q={app_name_lower}"
+
+        # 2. Web Fallback if native application is not installed on device
+        web_urls = {
+            "spotify": "https://open.spotify.com",
+            "discord": "https://discord.com/app",
+            "whatsapp": "https://web.whatsapp.com",
+            "telegram": "https://web.telegram.org",
+            "youtube": "https://www.youtube.com",
+            "github": "https://github.com",
+            "twitter": "https://x.com",
+            "x": "https://x.com",
+            "instagram": "https://www.instagram.com",
+            "reddit": "https://www.reddit.com"
+        }
+
+        if app_name_lower in web_urls:
+            webbrowser.open(web_urls[app_name_lower])
+            return {"status": "success", "message": f"Native app '{app_name}' not installed. Opened web application in browser."}
+
+        # Google Search fallback for unrecognized apps
+        search_url = f"https://www.google.com/search?q={urllib.parse.quote(app_name_lower)}"
         webbrowser.open(search_url)
-        return {"status": "success", "message": f"Local executable '{app_name}' not found. Opened web search in browser."}
+        return {"status": "success", "message": f"Local application '{app_name}' not found on device. Opened web search in browser."}
+
+    def _play_media(self, query_or_target: str) -> Dict[str, Any]:
+        """
+        Automatically plays requested song or video directly instead of leaving user on search page.
+        """
+        query_lower = query_or_target.lower().strip()
+
+        # Check if platform specified
+        is_spotify = "spotify" in query_lower
+        query_clean = re.sub(r'\b(on youtube|on spotify|play|song|video|music)\b', '', query_or_target, flags=re.IGNORECASE).strip()
+        if not query_clean:
+            query_clean = query_or_target
+
+        if is_spotify:
+            # Check native Spotify desktop application
+            native_spotify = find_native_app("spotify")
+            if native_spotify:
+                try:
+                    subprocess.Popen(f'start "" "spotify:search:{urllib.parse.quote(query_clean)}"', shell=True)
+                    return {"status": "success", "message": f"Playing '{query_clean}' in Spotify native desktop application."}
+                except Exception:
+                    pass
+            # Spotify Web fallback
+            spotify_url = f"https://open.spotify.com/search/{urllib.parse.quote(query_clean)}"
+            webbrowser.open(spotify_url)
+            return {"status": "success", "message": f"Opening '{query_clean}' in Spotify Web."}
+
+        # Default YouTube Autoplay Resolution
+        search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query_clean)}"
+        try:
+            req = urllib.request.Request(search_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+            html = urllib.request.urlopen(req, timeout=4).read().decode('utf-8')
+            v_ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
+            if v_ids:
+                autoplay_url = f"https://www.youtube.com/watch?v={v_ids[0]}&autoplay=1"
+                webbrowser.open(autoplay_url)
+                return {"status": "success", "message": f"Playing video '{query_clean}' automatically on YouTube."}
+        except Exception:
+            pass
+
+        # Fallback to YouTube Search URL if video ID scraping timed out
+        webbrowser.open(search_url)
+        return {"status": "success", "message": f"Opened YouTube search for '{query_clean}'."}
 
     def _open_website(self, url_or_query: str) -> Dict[str, Any]:
+        # Handle YouTube results URL with autoplay resolution
+        if "youtube.com/results?search_query=" in url_or_query:
+            query = url_or_query.split("search_query=")[-1]
+            return self._play_media(urllib.parse.unquote(query))
+
         if not (url_or_query.startswith("http://") or url_or_query.startswith("https://")):
             if "." in url_or_query and " " not in url_or_query:
                 url = f"https://{url_or_query}"
             else:
-                url = f"https://www.google.com/search?q={url_or_query}"
+                url = f"https://www.google.com/search?q={urllib.parse.quote(url_or_query)}"
         else:
             url = url_or_query
 
-        # If it's a YouTube search query, attempt to resolve the top video ID directly to start playback
-        if "youtube.com/results?search_query=" in url:
-            try:
-                import urllib.request
-                import urllib.parse
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-                html = urllib.request.urlopen(req, timeout=3).read().decode('utf-8')
-                v_ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
-                if v_ids:
-                    url = f"https://www.youtube.com/watch?v={v_ids[0]}"
-            except Exception:
-                pass
-            
         webbrowser.open(url)
-        return {"status": "success", "message": f"Playing video / opening web target in browser."}
+        return {"status": "success", "message": f"Opened web target in browser."}
 
     def _run_system_command(self, cmd_type: str) -> Dict[str, Any]:
         cmd_type_lower = cmd_type.lower()
