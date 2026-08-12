@@ -42,6 +42,14 @@ async def health_check():
 async def get_system_status():
     return automation_engine.get_system_telemetry()
 
+@router.get("/system/check_github_update")
+async def check_github_update():
+    return automation_engine.check_github_update()
+
+@router.post("/system/apply_github_update")
+async def apply_github_update():
+    return automation_engine.apply_github_update()
+
 @router.get("/vision/analyze")
 async def analyze_screen_vision():
     return vision_engine.analyze_screen()
@@ -68,8 +76,8 @@ async def process_command(req: CommandRequest):
     if intent == "vision_analyze_screen":
         action_result = vision_engine.analyze_screen()
         response_text = action_result.get("message", "Screen analysis complete.")
-    elif intent in ["open_application", "play_media", "open_website", "system_command", "file_search", "kill_process"]:
-        action_result = automation_engine.execute_action(intent=intent, target=target)
+    elif intent in ["open_application", "in_app_action", "play_media", "open_website", "system_command", "file_search", "kill_process"]:
+        action_result = automation_engine.execute_action(intent=intent, target=target, data=intent_data)
         response_text = action_result.get("message", "Task executed.")
     else:
         # Generate LLM response

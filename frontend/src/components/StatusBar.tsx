@@ -1,18 +1,58 @@
 import { useEffect, useState } from 'react';
-import { Activity, Cpu, Wifi, Shield, Clock, Sliders } from 'lucide-react';
+import { Activity, Cpu, Wifi, Shield, Clock, Sliders, RefreshCw, GitPullRequest } from 'lucide-react';
 import { soundFx } from '@/lib/soundFx';
 
 export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const [now, setNow] = useState(new Date());
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [commitMsg, setCommitMsg] = useState('');
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    const checkUpdate = async () => {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/system/check_github_update');
+        const data = await res.json();
+        if (data.update_available) {
+          setUpdateAvailable(true);
+          setCommitMsg(data.commit_message || 'New version available');
+        }
+      } catch (err) {
+        // Backend offline or dev mode
+      }
+    };
+    checkUpdate();
+    const updateInterval = setInterval(checkUpdate, 60000);
+    return () => clearInterval(updateInterval);
+  }, []);
+
   const handleSettingsClick = () => {
     soundFx.playBeep(1200, 0.04);
     onOpenSettings?.();
+  };
+
+  const handleApplyUpdate = async () => {
+    try {
+      setUpdating(true);
+      soundFx.playChirp();
+      const res = await fetch('http://127.0.0.1:8000/api/system/apply_github_update', { method: 'POST' });
+      const data = await res.json();
+      if (data.status === 'success') {
+        alert('GitHub Update Applied Successfully! Reloading app...');
+        window.location.reload();
+      } else {
+        alert(`Update error: ${data.message}`);
+      }
+    } catch (err) {
+      alert('Failed to pull update from GitHub.');
+    } finally {
+      setUpdating(false);
+    }
   };
 
   return (
@@ -41,6 +81,22 @@ export function StatusBar({ onOpenSettings }: { onOpenSettings?: () => void }) {
       </div>
 
       <div className="flex items-center gap-3">
+        {updateAvailable && (
+          <button
+            onClick={handleApplyUpdate}
+            disabled={updating}
+            className="flex items-center gap-1.5 animate-pulse border border-emerald-500/80 bg-emerald-950/80 px-2 py-0.5 hud-mono text-[10px] uppercase text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.3)] hover:bg-emerald-800/50"
+            title={`GitHub Update Ready: ${commitMsg}`}
+          >
+            {updating ? (
+              <RefreshCw className="h-3 w-3 animate-spin text-emerald-400" />
+            ) : (
+              <GitPullRequest className="h-3 w-3 text-emerald-400" />
+            )}
+            <span>{updating ? 'Updating...' : 'Sync GitHub'}</span>
+          </button>
+        )}
+
         {onOpenSettings && (
           <button
             onClick={handleSettingsClick}

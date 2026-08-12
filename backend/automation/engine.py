@@ -1,6 +1,8 @@
 import os
 import re
+import time
 import shutil
+import threading
 import subprocess
 import webbrowser
 import urllib.request
@@ -19,12 +21,10 @@ def find_native_app(app_name: str) -> Optional[str]:
     """
     app_lower = app_name.lower().strip()
 
-    # Direct System PATH / Executable check
     bin_path = shutil.which(app_lower) or shutil.which(f"{app_lower}.exe")
     if bin_path:
         return bin_path
 
-    # Common Application mapping & URI protocols
     app_mapping = {
         "spotify": [
             r"C:\Users\%USERNAME%\AppData\Roaming\Spotify\Spotify.exe",
@@ -66,7 +66,6 @@ def find_native_app(app_name: str) -> Optional[str]:
             if candidate.endswith(":") or shutil.which(expanded) or os.path.exists(expanded):
                 return expanded
 
-    # Fast Windows Start Menu Shortcuts (.lnk) Search
     start_dirs = [
         os.path.expandvars(r'%PROGRAMDATA%\Microsoft\Windows\Start Menu\Programs'),
         os.path.expandvars(r'%APPDATA%\Microsoft\Windows\Start Menu\Programs')
@@ -78,7 +77,6 @@ def find_native_app(app_name: str) -> Optional[str]:
                     if f.lower().endswith('.lnk') and app_lower in f.lower():
                         return os.path.join(root, f)
 
-    # Windows Registry App Paths Lookup
     try:
         import winreg
         reg_keys = [
@@ -102,6 +100,17 @@ def find_native_app(app_name: str) -> Optional[str]:
         pass
 
     return None
+
+def trigger_media_key_play():
+    """Simulates media play/pause or enter key press after opening player."""
+    try:
+        time.sleep(2.5)
+        import pyautogui
+        pyautogui.press('enter')
+        time.sleep(0.5)
+        pyautogui.press('space')
+    except Exception:
+        pass
 
 class AutomationEngine:
     def __init__(self):
@@ -146,12 +155,48 @@ class AutomationEngine:
             "gpu": gpu_info
         }
 
+    def check_github_update(self) -> Dict[str, Any]:
+        """Checks GitHub master branch for new commits."""
+        try:
+            cmd = "git rev-parse HEAD"
+            local_commit = subprocess.check_output(cmd, shell=True, text=True).strip()
+            
+            req = urllib.request.Request(
+                "https://api.github.com/repos/Anik-da/BYTE/commits/master",
+                headers={"User-Agent": "BYTE-Assistant-Updater"}
+            )
+            html = urllib.request.urlopen(req, timeout=5).read().decode('utf-8')
+            import json
+            data = json.loads(html)
+            remote_commit = data.get("sha", "")
+            commit_msg = data.get("commit", {}).get("message", "").split("\n")[0]
+            
+            has_update = local_commit != remote_commit if (local_commit and remote_commit) else False
+            return {
+                "status": "success",
+                "update_available": has_update,
+                "local_commit": local_commit[:7],
+                "remote_commit": remote_commit[:7],
+                "commit_message": commit_msg
+            }
+        except Exception as e:
+            return {"status": "error", "update_available": False, "message": str(e)}
+
+    def apply_github_update(self) -> Dict[str, Any]:
+        """Pulls latest updates from GitHub and rebuilds."""
+        try:
+            out = subprocess.check_output("git pull origin master", shell=True, text=True).strip()
+            return {"status": "success", "message": f"Successfully updated from GitHub: {out}"}
+        except Exception as e:
+            return {"status": "error", "message": f"Git pull failed: {str(e)}"}
+
     def execute_action(self, intent: str, target: Optional[str] = None, data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        Executes verified system automation actions based on classified intent.
-        """
         if intent == "open_application":
             return self._open_app(target or "")
+        elif intent == "in_app_action":
+            action_type = data.get("action", "type") if data else "type"
+            payload = data.get("payload", "") if data else ""
+            return self._execute_in_app_action(target or "", action_type, payload)
         elif intent == "play_media":
             return self._play_media(target or "")
         elif intent == "open_website":
@@ -165,10 +210,71 @@ class AutomationEngine:
         else:
             return {"status": "skipped", "message": "No automation required for intent"}
 
+    def _execute_in_app_action(self, target_app: str, action: str, payload: str) -> Dict[str, Any]:
+        """
+        Executes inside-application automation (typing messages, sending texts, making calls, writing notes).
+        """
+        app_lower = target_app.lower().strip()
+        action_lower = action.lower().strip()
+        payload_clean = payload.strip()
+
+        # 1. Open/Focus target application
+        self._open_app(app_lower)
+        time.sleep(1.5)
+
+        # 2. WhatsApp In-App Messaging & Calling
+        if "whatsapp" in app_lower:
+            if "call" in action_lower:
+                try:
+                    import pyautogui
+                    pyautogui.hotkey('ctrl', 'f')
+                    time.sleep(0.4)
+                    pyautogui.write(payload_clean, interval=0.03)
+                    time.sleep(0.5)
+                    pyautogui.press('enter')
+                    time.sleep(0.5)
+                    pyautogui.hotkey('ctrl', 'shift', 'c')
+                    return {"status": "success", "message": f"Initiated WhatsApp call to '{payload_clean}'."}
+                except Exception as e:
+                    return {"status": "error", "message": f"WhatsApp call error: {str(e)}"}
+            else:
+                try:
+                    import pyautogui
+                    text_msg = payload_clean
+                    contact = ""
+                    if " to " in payload_clean:
+                        parts = payload_clean.split(" to ")
+                        text_msg = parts[0].strip()
+                        contact = parts[1].strip()
+
+                    if contact:
+                        pyautogui.hotkey('ctrl', 'f')
+                        time.sleep(0.4)
+                        pyautogui.write(contact, interval=0.03)
+                        time.sleep(0.5)
+                        pyautogui.press('enter')
+                        time.sleep(0.5)
+
+                    pyautogui.write(text_msg, interval=0.02)
+                    time.sleep(0.3)
+                    pyautogui.press('enter')
+                    return {"status": "success", "message": f"Sent WhatsApp message: '{text_msg}'."}
+                except Exception as e:
+                    return {"status": "error", "message": f"WhatsApp message error: {str(e)}"}
+
+        # 3. Generic In-App Typing (Notepad, VS Code, Word, Terminal, etc.)
+        try:
+            import pyautogui
+            pyautogui.write(payload_clean, interval=0.02)
+            time.sleep(0.2)
+            pyautogui.press('enter')
+            return {"status": "success", "message": f"Performed in-app action in '{target_app}': typed '{payload_clean}'."}
+        except Exception as e:
+            return {"status": "error", "message": f"In-app typing error: {str(e)}"}
+
     def _open_app(self, app_name: str) -> Dict[str, Any]:
         app_name_lower = app_name.lower().strip()
 
-        # 1. Search for native desktop app installed on device
         native_path = find_native_app(app_name_lower)
         if native_path:
             try:
@@ -179,10 +285,9 @@ class AutomationEngine:
                 else:
                     subprocess.Popen(f'start "" "{native_path}"', shell=True)
                 return {"status": "success", "message": f"Successfully launched native desktop application '{app_name}'."}
-            except Exception as e:
+            except Exception:
                 pass
 
-        # 2. Web Fallback if native application is not installed on device
         web_urls = {
             "spotify": "https://open.spotify.com",
             "discord": "https://discord.com/app",
@@ -191,7 +296,6 @@ class AutomationEngine:
             "youtube": "https://www.youtube.com",
             "github": "https://github.com",
             "twitter": "https://x.com",
-            "x": "https://x.com",
             "instagram": "https://www.instagram.com",
             "reddit": "https://www.reddit.com"
         }
@@ -200,56 +304,59 @@ class AutomationEngine:
             webbrowser.open(web_urls[app_name_lower])
             return {"status": "success", "message": f"Native app '{app_name}' not installed. Opened web application in browser."}
 
-        # Google Search fallback for unrecognized apps
         search_url = f"https://www.google.com/search?q={urllib.parse.quote(app_name_lower)}"
         webbrowser.open(search_url)
         return {"status": "success", "message": f"Local application '{app_name}' not found on device. Opened web search in browser."}
 
     def _play_media(self, query_or_target: str) -> Dict[str, Any]:
         """
-        Automatically plays requested song or video directly instead of leaving user on search page.
+        Plays requested song/video automatically:
+        - Excludes YouTube Shorts (forces full-length official videos).
+        - Auto-plays Spotify songs via desktop app / web player trigger.
         """
         query_lower = query_or_target.lower().strip()
 
-        # Check if platform specified
         is_spotify = "spotify" in query_lower
         query_clean = re.sub(r'\b(on youtube|on spotify|play|song|video|music)\b', '', query_or_target, flags=re.IGNORECASE).strip()
         if not query_clean:
             query_clean = query_or_target
 
         if is_spotify:
-            # Check native Spotify desktop application
             native_spotify = find_native_app("spotify")
             if native_spotify:
                 try:
                     subprocess.Popen(f'start "" "spotify:search:{urllib.parse.quote(query_clean)}"', shell=True)
-                    return {"status": "success", "message": f"Playing '{query_clean}' in Spotify native desktop application."}
+                    threading.Thread(target=trigger_media_key_play, daemon=True).start()
+                    return {"status": "success", "message": f"Playing '{query_clean}' in Spotify native application."}
                 except Exception:
                     pass
-            # Spotify Web fallback
+            
             spotify_url = f"https://open.spotify.com/search/{urllib.parse.quote(query_clean)}"
             webbrowser.open(spotify_url)
-            return {"status": "success", "message": f"Opening '{query_clean}' in Spotify Web."}
+            threading.Thread(target=trigger_media_key_play, daemon=True).start()
+            return {"status": "success", "message": f"Opening and playing '{query_clean}' in Spotify Web."}
 
-        # Default YouTube Autoplay Resolution
-        search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query_clean)}"
+        # YouTube Autoplay Resolution with SHORTS EXCLUSION FILTER
+        search_url = f"https://www.youtube.com/results?search_query={urllib.parse.quote(query_clean + ' official video song')}"
         try:
-            req = urllib.request.Request(search_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-            html = urllib.request.urlopen(req, timeout=4).read().decode('utf-8')
-            v_ids = re.findall(r'/watch\?v=([a-zA-Z0-9_-]{11})', html)
-            if v_ids:
-                autoplay_url = f"https://www.youtube.com/watch?v={v_ids[0]}&autoplay=1"
+            req = urllib.request.Request(search_url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            })
+            html = urllib.request.urlopen(req, timeout=5).read().decode('utf-8')
+
+            # Strictly match full-length videoRenderer items to filter out Shorts
+            video_ids = re.findall(r'"videoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"', html)
+            if video_ids:
+                autoplay_url = f"https://www.youtube.com/watch?v={video_ids[0]}&autoplay=1"
                 webbrowser.open(autoplay_url)
-                return {"status": "success", "message": f"Playing video '{query_clean}' automatically on YouTube."}
+                return {"status": "success", "message": f"Playing official full-length video '{query_clean}' automatically on YouTube."}
         except Exception:
             pass
 
-        # Fallback to YouTube Search URL if video ID scraping timed out
         webbrowser.open(search_url)
         return {"status": "success", "message": f"Opened YouTube search for '{query_clean}'."}
 
     def _open_website(self, url_or_query: str) -> Dict[str, Any]:
-        # Handle YouTube results URL with autoplay resolution
         if "youtube.com/results?search_query=" in url_or_query:
             query = url_or_query.split("search_query=")[-1]
             return self._play_media(urllib.parse.unquote(query))

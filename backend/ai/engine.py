@@ -84,7 +84,34 @@ class AIEngine:
                     "requires_confirmation": False
                 }
 
-        # 4. Open Application Intent (Notepad, VS Code, Calc, Chrome, etc.)
+        # 4. In-App Automation Intent (typing text, sending messages, calling inside apps)
+        in_app_match = re.search(r'\b(open|launch|run|start)?\s*([a-z0-9\s]+?)\s+(and|to)\s+(write|type|send|message|call|text)\s+(.+)', text_lower)
+        if in_app_match:
+            app_name = in_app_match.group(2).strip()
+            action_type = in_app_match.group(4).strip()
+            payload = in_app_match.group(5).strip()
+            return {
+                "intent": "in_app_action",
+                "target": app_name,
+                "action": action_type,
+                "payload": payload,
+                "requires_confirmation": False
+            }
+
+        msg_match = re.search(r'\b(send message|message|send text|call|type|write)\s+(.+?)\s+(on|in|to)\s+([a-z0-9\s]+)', text_lower)
+        if msg_match:
+            action_type = msg_match.group(1).strip()
+            payload = msg_match.group(2).strip()
+            app_name = msg_match.group(4).strip()
+            return {
+                "intent": "in_app_action",
+                "target": app_name,
+                "action": action_type,
+                "payload": payload,
+                "requires_confirmation": False
+            }
+
+        # 5. Open Application Intent (Notepad, VS Code, Calc, Chrome, etc.)
         if re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower):
             match = re.search(r'\b(open|launch|run|start)\s+(app|application|program|software)?\s*(.+)', text_lower)
             raw_target = match.group(3).strip() if match else ""
