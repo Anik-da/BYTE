@@ -67,7 +67,7 @@ export function RadarSweep({ active }: RadarSweepProps) {
     ctx.scale(dpr, dpr);
 
     const draw = () => {
-      t += 0.02;
+      t += 0.006;
       ctx.clearRect(0, 0, size, size);
       const cx = size / 2;
       const cy = size / 2;
