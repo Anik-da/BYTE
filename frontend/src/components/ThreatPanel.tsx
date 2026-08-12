@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { fetchSystemTelemetry } from '@/lib/desktopApi';
+import { Shield, ShieldAlert, ShieldCheck, Crosshair, Eye, Lock } from 'lucide-react';
 
 type ThreatLevel = 'GREEN' | 'YELLOW' | 'ORANGE' | 'RED';
 

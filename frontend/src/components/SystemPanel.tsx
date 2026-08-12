@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { fetchSystemTelemetry } from '@/lib/desktopApi';
+import { Waveform } from './Waveform';
 
 interface SystemStats {
   cpu: number;
