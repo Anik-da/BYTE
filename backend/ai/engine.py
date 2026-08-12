@@ -157,27 +157,74 @@ class AIEngine:
             
         messages.append({"role": "user", "content": prompt})
 
-        # Local AI First
+        # AI Provider selection
         provider = settings.get("ai_provider", "ollama")
         groq_model = settings.get("groq_model", "llama-3.1-8b-instant")
         if groq_model in ["groq/compound", "groq/compound-mini", "minimaxai/minimax-m2.7"]:
             groq_model = "llama-3.1-8b-instant"
+        groq_api_key = settings.get("groq_api_key", "")
+        openrouter_model = settings.get("openrouter_model", "liquid/lfm-2.5-2.6b:free")
+        openrouter_api_key = settings.get("openrouter_api_key", "")
 
         if provider == "ollama":
             response = await self._query_ollama(messages, settings.get("ollama_model", "llama3"))
             if not (response.startswith("[Ollama Offline]") or response.startswith("[Ollama Warning]") or response.startswith("[Ollama Error]")):
                 return response
             
-            # Local Ollama is offline; automatically fall back to Groq Cloud
-            groq_resp = await self._query_groq(messages, groq_model)
-            if not groq_resp.startswith("[Groq"):
+            # Local Ollama is offline; automatically fall back to Groq Cloud or OpenRouter
+            groq_resp = await self._query_groq(messages, groq_model, groq_api_key)
+            if not groq_resp.startswith("[Groq") and not groq_resp.startswith("[BYTE System]"):
                 return f"[Local AI -> Cloud Fallback] {groq_resp}"
             return response
             
         elif provider == "groq":
-            return await self._query_groq(messages, groq_model)
+            return await self._query_groq(messages, groq_model, groq_api_key)
+        elif provider == "openrouter":
+            return await self._query_openrouter(messages, openrouter_model, openrouter_api_key)
         else:
             return f"[BYTE System] AI provider '{provider}' selected. Standing by for inference."
+
+    async def _query_openrouter(self, messages: list, model: str, api_key: Optional[str] = None) -> str:
+        if not api_key:
+            api_key = os.getenv("OPENROUTER_API_KEY") or os.getenv("VITE_OPENROUTER_API_KEY") or ""
+            
+        headers = {
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://byte-ai.local",
+            "X-Title": "BYTE AI Assistant"
+        }
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                res = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+                if res.status_code == 200:
+                    data = res.json()
+                    choices = data.get("choices", [])
+                    if choices:
+                        return choices[0].get("message", {}).get("content", "").strip()
+                    return "[OpenRouter Error] Empty choices returned from API."
+                else:
+                    # Fallback attempt with default free model if custom model fails
+                    if model != "liquid/lfm-2.5-2.6b:free":
+                        payload["model"] = "liquid/lfm-2.5-2.6b:free"
+                        res_fallback = await client.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+                        if res_fallback.status_code == 200:
+                            data = res_fallback.json()
+                            choices = data.get("choices", [])
+                            if choices:
+                                return f"[OpenRouter Fallback] {choices[0].get('message', {}).get('content', '').strip()}"
+
+                    return f"[OpenRouter HTTP {res.status_code}] {res.text}"
+        except Exception as e:
+            return f"[OpenRouter Error] Could not connect to OpenRouter endpoint: {str(e)}"
 
     async def _query_ollama(self, messages: list, model: str) -> str:
         tag_map = {
@@ -222,10 +269,16 @@ class AIEngine:
         except Exception as e:
             return f"[Ollama Offline] Local Ollama service is not active on http://127.0.0.1:11434. Please install/start Ollama (https://ollama.com)."
 
-    async def _query_groq(self, messages: list, model: str) -> str:
-        api_key = os.environ.get("VITE_GROQ_API_KEY") or os.environ.get("GROQ_API_KEY", "")
+    async def _query_groq(self, messages: list, model: str, api_key: Optional[str] = None) -> str:
         if not api_key:
-            return "[BYTE System] Groq API key is not set. Please update AI Settings."
+            api_key = os.environ.get("VITE_GROQ_API_KEY") or os.environ.get("GROQ_API_KEY", "")
+        
+        if not api_key:
+            # Automatic fallback to free OpenRouter model if Groq key is unconfigured
+            openrouter_resp = await self._query_openrouter(messages, "liquid/lfm-2.5-2.6b:free", None)
+            if not openrouter_resp.startswith("[OpenRouter"):
+                return openrouter_resp
+            return "[BYTE System] Groq API key is missing. Please enter your Groq API key in Settings, or select OpenRouter in the model dropdown."
         
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -241,7 +294,13 @@ class AIEngine:
                 if res.status_code == 200:
                     data = res.json()
                     return data["choices"][0]["message"]["content"]
-                return f"[Groq Error] API error HTTP {res.status_code}"
+                
+                # If key invalid or quota exceeded, attempt free OpenRouter fallback
+                openrouter_resp = await self._query_openrouter(messages, "liquid/lfm-2.5-2.6b:free", None)
+                if not openrouter_resp.startswith("[OpenRouter"):
+                    return openrouter_resp
+
+                return f"[Groq Error] API error HTTP {res.status_code}: {res.text}"
         except Exception as e:
             return f"[Groq Connection Error] {str(e)}"
 

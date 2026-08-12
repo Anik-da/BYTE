@@ -34,10 +34,13 @@ def init_db():
     default_settings = {
         "ai_provider": "ollama",  # Local AI First
         "groq_model": "groq/compound",
+        "groq_api_key": "",
         "ollama_model": "llama3",
         "wake_word_enabled": True,
         "auto_launch": False,
         "auto_update": True,
+        "openrouter_model": "liquid/lfm-2.5-2.6b:free",
+        "openrouter_api_key": "",
         "security_level": "medium",
         "coding_style": "clean_modular_typescript"
     }

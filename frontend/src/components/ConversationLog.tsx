@@ -22,9 +22,10 @@ interface ConversationLogProps {
   speechSupported: boolean;
   selectedModel: string;
   setSelectedModel: (m: any) => void;
-  aiProvider?: 'ollama' | 'groq';
+  aiProvider?: 'ollama' | 'groq' | 'openrouter';
   ollamaModel?: string;
-  onUpdateModelSetting?: (provider: 'ollama' | 'groq', model: string) => void;
+  openrouterModel?: string;
+  onUpdateModelSetting?: (provider: 'ollama' | 'groq' | 'openrouter', model: string) => void;
   onClearHistory?: () => void;
   loading: boolean;
 }
@@ -45,6 +46,7 @@ export function ConversationLog({
   setSelectedModel,
   aiProvider = 'groq',
   ollamaModel = 'llama3',
+  openrouterModel = 'liquid/lfm-2.5-2.6b:free',
   onUpdateModelSetting,
   onClearHistory,
   loading,
@@ -67,15 +69,24 @@ export function ConversationLog({
       onUpdateModelSetting?.('groq', 'groq/compound');
     } else if (val === 'switch-ollama') {
       onUpdateModelSetting?.('ollama', 'llama3');
+    } else if (val === 'switch-openrouter') {
+      onUpdateModelSetting?.('openrouter', 'liquid/lfm-2.5-2.6b:free');
     } else if (aiProvider === 'ollama') {
       onUpdateModelSetting?.('ollama', val);
+    } else if (aiProvider === 'openrouter') {
+      onUpdateModelSetting?.('openrouter', val);
     } else {
       setSelectedModel(val);
       onUpdateModelSetting?.('groq', val);
     }
   };
 
-  const currentSelectValue = aiProvider === 'ollama' ? ollamaModel : selectedModel;
+  const currentSelectValue =
+    aiProvider === 'ollama'
+      ? ollamaModel
+      : aiProvider === 'openrouter'
+        ? openrouterModel
+        : selectedModel;
 
   return (
     <div className="hud-panel hud-corner flex h-full flex-col p-3.5">
@@ -100,6 +111,16 @@ export function ConversationLog({
                 <option value="qwen2" className="bg-slate-950">OLLAMA: QWEN 2 (7B)</option>
                 <option value="gemma2" className="bg-slate-950">OLLAMA: GEMMA 2 (9B)</option>
                 <option value="deepseek-coder" className="bg-slate-950">OLLAMA: DEEPSEEK CODER</option>
+                <option value="switch-openrouter" className="bg-slate-950 text-hud-gold">🌐 SWITCH TO OPENROUTER</option>
+                <option value="switch-groq" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO GROQ CLOUD</option>
+              </>
+            ) : aiProvider === 'openrouter' ? (
+              <>
+                <option value="liquid/lfm-2.5-2.6b:free" className="bg-slate-950">OPENROUTER: LIQUID AI LFM2.5 (FREE)</option>
+                <option value="fish-audio/s2.1-pro:free" className="bg-slate-950">OPENROUTER: FISH AUDIO S2.1 (FREE)</option>
+                <option value="deepseek/deepseek-r1:free" className="bg-slate-950">OPENROUTER: DEEPSEEK R1 (FREE)</option>
+                <option value="meta-llama/llama-3.3-70b-instruct:free" className="bg-slate-950">OPENROUTER: LLAMA 3.3 70B (FREE)</option>
+                <option value="switch-ollama" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO LOCAL OLLAMA</option>
                 <option value="switch-groq" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO GROQ CLOUD</option>
               </>
             ) : (
@@ -107,6 +128,7 @@ export function ConversationLog({
                 <option value="groq/compound" className="bg-slate-950">GROQ COMPOUND</option>
                 <option value="groq/compound-mini" className="bg-slate-950">GROQ COMPOUND MINI</option>
                 <option value="minimaxai/minimax-m2.7" className="bg-slate-950">MINIMAX M2.7</option>
+                <option value="switch-openrouter" className="bg-slate-950 text-hud-gold">🌐 SWITCH TO OPENROUTER</option>
                 <option value="switch-ollama" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO LOCAL OLLAMA</option>
               </>
             )}

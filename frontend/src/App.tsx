@@ -51,14 +51,16 @@ export default function App() {
   const speech = useSpeech();
   const pendingTranscriptRef = useRef(false);
 
-  const [aiProvider, setAiProvider] = useState<'ollama' | 'groq'>('groq');
+  const [aiProvider, setAiProvider] = useState<'ollama' | 'groq' | 'openrouter'>('groq');
   const [ollamaModel, setOllamaModel] = useState<string>('llama3');
+  const [openrouterModel, setOpenrouterModel] = useState<string>('liquid/lfm-2.5-2.6b:free');
 
   const syncSettings = useCallback(() => {
     fetchBackendSettings().then((s: Record<string, any>) => {
       if (s) {
         if (s.ai_provider) setAiProvider(s.ai_provider as any);
         if (s.ollama_model) setOllamaModel(s.ollama_model);
+        if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
         if (s.groq_model) setSelectedModel(s.groq_model as GroqModel);
       }
     });
@@ -68,21 +70,23 @@ export default function App() {
     if (booted) syncSettings();
   }, [booted, syncSettings]);
 
-  const handleUpdateModelSetting = useCallback(async (provider: 'ollama' | 'groq', model: string) => {
+  const handleUpdateModelSetting = useCallback(async (provider: 'ollama' | 'groq' | 'openrouter', model: string) => {
     setAiProvider(provider);
     if (provider === 'ollama') setOllamaModel(model);
+    else if (provider === 'openrouter') setOpenrouterModel(model);
     else setSelectedModel(model as GroqModel);
 
     try {
       await saveBackendSettings({
         ai_provider: provider,
         ollama_model: provider === 'ollama' ? model : ollamaModel,
+        openrouter_model: provider === 'openrouter' ? model : openrouterModel,
         groq_model: provider === 'groq' ? model : selectedModel,
       });
     } catch (err) {
       console.warn("Failed to persist model setting:", err);
     }
-  }, [ollamaModel, selectedModel]);
+  }, [ollamaModel, openrouterModel, selectedModel]);
 
   // Check for updates after boot
   useEffect(() => {
@@ -435,6 +439,7 @@ export default function App() {
                   setSelectedModel={setSelectedModel}
                   aiProvider={aiProvider}
                   ollamaModel={ollamaModel}
+                  openrouterModel={openrouterModel}
                   onUpdateModelSetting={handleUpdateModelSetting}
                   onClearHistory={handleClearHistory}
                   loading={loading}
@@ -460,6 +465,7 @@ export default function App() {
                 setSelectedModel={setSelectedModel}
                 aiProvider={aiProvider}
                 ollamaModel={ollamaModel}
+                openrouterModel={openrouterModel}
                 onUpdateModelSetting={handleUpdateModelSetting}
                 onClearHistory={handleClearHistory}
                 loading={loading}

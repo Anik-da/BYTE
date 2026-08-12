@@ -14,7 +14,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('ai');
   const [aiProvider, setAiProvider] = useState('groq');
   const [groqModel, setGroqModel] = useState('groq/compound');
+  const [groqApiKey, setGroqApiKey] = useState('');
   const [ollamaModel, setOllamaModel] = useState('llama3');
+  const [openrouterModel, setOpenrouterModel] = useState('liquid/lfm-2.5-2.6b:free');
+  const [openrouterApiKey, setOpenrouterApiKey] = useState('');
   const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -27,7 +30,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       fetchBackendSettings().then((s) => {
         if (s.ai_provider) setAiProvider(s.ai_provider);
         if (s.groq_model) setGroqModel(s.groq_model);
+        if (s.groq_api_key !== undefined) setGroqApiKey(s.groq_api_key);
         if (s.ollama_model) setOllamaModel(s.ollama_model);
+        if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
+        if (s.openrouter_api_key !== undefined) setOpenrouterApiKey(s.openrouter_api_key);
         if (s.wake_word_enabled !== undefined) setWakeWordEnabled(s.wake_word_enabled);
         if (s.auto_launch !== undefined) setAutoLaunch(s.auto_launch);
         if (s.auto_update !== undefined) setAutoUpdate(s.auto_update);
@@ -39,7 +45,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const success = await saveBackendSettings({
       ai_provider: aiProvider,
       groq_model: groqModel,
+      groq_api_key: groqApiKey,
       ollama_model: ollamaModel,
+      openrouter_model: openrouterModel,
+      openrouter_api_key: openrouterApiKey,
       wake_word_enabled: wakeWordEnabled,
       auto_launch: autoLaunch,
       auto_update: autoUpdate,
@@ -175,23 +184,72 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   >
                     <option value="ollama">Ollama (Local Offline LLM - 100% Free)</option>
                     <option value="groq">Groq Cloud (Free Developer Tier)</option>
+                    <option value="openrouter">OpenRouter (Free Tier - LiquidAI, Fish Audio, DeepSeek, Llama 3.3)</option>
                   </select>
                 </div>
 
                 {aiProvider === 'groq' && (
-                  <div>
-                    <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
-                      Groq Model
-                    </label>
-                    <select
-                      value={groqModel}
-                      onChange={(e) => setGroqModel(e.target.value)}
-                      className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
-                    >
-                      <option value="groq/compound">Groq Compound</option>
-                      <option value="groq/compound-mini">Groq Compound Mini</option>
-                      <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
-                    </select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
+                        Groq Model
+                      </label>
+                      <select
+                        value={groqModel}
+                        onChange={(e) => setGroqModel(e.target.value)}
+                        className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
+                      >
+                        <option value="groq/compound">Groq Compound</option>
+                        <option value="groq/compound-mini">Groq Compound Mini</option>
+                        <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
+                        Groq API Key (gsk_...)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="gsk_..."
+                        value={groqApiKey}
+                        onChange={(e) => setGroqApiKey(e.target.value)}
+                        className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red placeholder:text-hud-red/30 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {aiProvider === 'openrouter' && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
+                        OpenRouter Model
+                      </label>
+                      <select
+                        value={openrouterModel}
+                        onChange={(e) => setOpenrouterModel(e.target.value)}
+                        className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
+                      >
+                        <option value="liquid/lfm-2.5-2.6b:free">LiquidAI: LFM2.5-2.6B (Free)</option>
+                        <option value="fish-audio/s2.1-pro:free">Fish Audio: S2.1 Pro Free (Free)</option>
+                        <option value="deepseek/deepseek-r1:free">DeepSeek: R1 (Free)</option>
+                        <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: Llama 3.3 70B Instruct (Free)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
+                        OpenRouter API Key (Optional for Free Models)
+                      </label>
+                      <input
+                        type="password"
+                        placeholder="sk-or-v1-..."
+                        value={openrouterApiKey}
+                        onChange={(e) => setOpenrouterApiKey(e.target.value)}
+                        className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red placeholder:text-hud-red/30 focus:outline-none"
+                      />
+                    </div>
                   </div>
                 )}
 
