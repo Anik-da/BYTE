@@ -242,6 +242,7 @@ export default function App() {
         lastProcessedTranscriptRef.current = extractedCommand;
         pendingTranscriptRef.current = false;
         soundFx.playChirp();
+        speech.stopListening();
         handleResult(extractedCommand);
       } else if (!extractedCommand && !speech.speaking && !loading) {
         // User spoke wake word alone; trigger instant listening response

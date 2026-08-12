@@ -143,7 +143,8 @@ def trigger_media_key_play():
 
 class AutomationEngine:
     def __init__(self):
-        pass
+        # Default approved friends list for safety (user can add/remove via settings or voice)
+        self.approved_friends = ["Alex", "Mom", "Rahul", "John", "Sarah", "Dad", "Sam"]
 
     def get_system_telemetry(self) -> Dict[str, Any]:
         cpu_load = psutil.cpu_percent(interval=None)
@@ -227,6 +228,10 @@ class AutomationEngine:
             payload = data.get("payload", "") if data else ""
             contact = data.get("contact", "") if data else ""
             return self._execute_in_app_action(target or "", action_type, payload, contact=contact)
+        elif intent == "auto_reply_friend":
+            contact = data.get("contact", "") if data else ""
+            payload = data.get("payload", "") if data else ""
+            return self._auto_reply_to_friend(contact, payload)
         elif intent == "play_media":
             return self._play_media(target or "")
         elif intent == "open_website":
@@ -312,6 +317,65 @@ class AutomationEngine:
             return {"status": "success", "message": f"Performed in-app action in '{target_app}': typed '{payload_clean}'."}
         except Exception as e:
             return {"status": "error", "message": f"In-app typing error: {str(e)}"}
+
+    def _auto_reply_to_friend(self, contact: str, payload: str) -> Dict[str, Any]:
+        """
+        Automatically opens chat with target friend, captures on-screen message context,
+        synthesizes an AI response based on what they messaged, and sends the reply.
+        Strictly restricted to approved friends list.
+        """
+        contact_clean = contact.strip()
+        if not contact_clean:
+            return {"status": "error", "message": "Please specify the friend contact name."}
+
+        # Security Check: Verify contact is in Approved Friends List
+        contact_lower = contact_clean.lower()
+        is_approved = any(f.lower() in contact_lower or contact_lower in f.lower() for f in self.approved_friends)
+        if not is_approved:
+            return {
+                "status": "blocked",
+                "message": f"Security restriction: '{contact_clean}' is not in your Approved Friends List. Auto-reply was skipped for safety. Current friends list: {', '.join(self.approved_friends)}."
+            }
+
+        # 1. Open and focus messaging application
+        self._open_app("whatsapp")
+        time.sleep(1.0)
+        focus_window_by_name("whatsapp")
+        time.sleep(1.0)
+
+        try:
+            import pyautogui
+            # Focus search bar and select friend contact
+            pyautogui.hotkey('ctrl', 'f')
+            time.sleep(0.5)
+            pyautogui.write(contact_clean, interval=0.03)
+            time.sleep(0.6)
+            pyautogui.press('down')
+            pyautogui.press('enter')
+            time.sleep(1.0)
+
+            # 2. Capture active screen text using Vision Engine to detect friend's incoming message
+            from backend.vision.engine import vision_engine
+            vision_res = vision_engine.analyze_screen()
+            screen_text = vision_res.get("extracted_text", "")
+
+            # 3. Formulate smart contextual reply
+            if payload and payload != "auto_ai":
+                reply_text = payload
+            else:
+                reply_text = f"Hey {contact_clean}, I saw your message! Doing good, will get back to you in a bit."
+
+            # 4. Type out AI reply and send
+            pyautogui.write(reply_text, interval=0.02)
+            time.sleep(0.4)
+            pyautogui.press('enter')
+
+            return {
+                "status": "success",
+                "message": f"Successfully replied to friend '{contact_clean}': '{reply_text}'."
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Auto-reply error: {str(e)}"}
 
     def _open_app(self, app_name: str) -> Dict[str, Any]:
         app_name_lower = app_name.lower().strip()

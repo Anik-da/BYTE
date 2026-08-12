@@ -89,7 +89,20 @@ class AIEngine:
                     "requires_confirmation": False
                 }
 
-        # 4. In-App Automation Intent (messaging, calling, typing inside apps)
+        # 4. Auto Reply to Friends Intent ("auto reply to Alex", "reply to Mom if she messages", "check and reply to Rahul")
+        auto_reply_m = re.search(r'\b(?:auto\s+reply|reply|check\s+and\s+reply)\s+(?:to\s+)?([a-z0-9\s]+?)(?:\s+(?:saying|that|with)\s+(.+))?$', text_lower)
+        if auto_reply_m and not text_lower.startswith("send "):
+            contact = auto_reply_m.group(1).replace("on whatsapp", "").replace("my friend", "").strip()
+            custom_msg = auto_reply_m.group(2).strip() if auto_reply_m.group(2) else "auto_ai"
+            return {
+                "intent": "auto_reply_friend",
+                "target": "whatsapp",
+                "contact": contact,
+                "payload": custom_msg,
+                "requires_confirmation": False
+            }
+
+        # 5. In-App Automation Intent (messaging, calling, typing inside apps)
         msg_m = re.search(r'\b(?:send\s+(?:a\s+)?message)\s+(?:to\s+([a-z0-9\s]+?)\s+(?:that|saying)\s+(.+)|(.+?)\s+to\s+([a-z0-9\s]+))', text_lower)
         if msg_m:
             target_app = "whatsapp" if "whatsapp" in text_lower else "whatsapp"

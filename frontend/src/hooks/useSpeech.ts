@@ -83,31 +83,23 @@ export function useSpeech(): SpeechHook {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const manualStopRef = useRef(false);
   const finalTranscriptRef = useRef('');
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load synthesis voices
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    const loadVoices = () => {
-      const v = window.speechSynthesis.getVoices();
-      if (v.length === 0) return;
-      setVoices(v);
-      setSelectedVoice((prev) => {
-        if (prev) return prev;
-        // Prefer an English male-sounding voice for JARVIS
-        const preferred =
-          v.find((x) => /Daniel|Arthur|George|Oliver|Google UK English Male/i.test(x.name)) ||
-          v.find((x) => /en-GB/i.test(x.lang) && /male/i.test(x.name)) ||
-          v.find((x) => /en-GB/i.test(x.lang)) ||
-          v.find((x) => /en[-_]/i.test(x.lang)) ||
-          v[0];
-        return preferred ?? null;
-      });
-    };
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+    // Turn OFF microphone if no speech/command detected within 6 seconds of silence
+    silenceTimerRef.current = setTimeout(() => {
+      manualStopRef.current = true;
+      setListening(false);
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    }, 6000);
   }, []);
 
   // Initialize recognition lazily
@@ -124,9 +116,11 @@ export function useSpeech(): SpeechHook {
     rec.onstart = () => {
       setListening(true);
       setError(null);
+      resetSilenceTimer();
     };
 
     rec.onresult = (event: SpeechRecognitionEvent) => {
+      resetSilenceTimer();
       let interimText = '';
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -157,21 +151,12 @@ export function useSpeech(): SpeechHook {
     rec.onend = () => {
       setListening(false);
       setInterim('');
-      // Always auto-restart for continuous background wake word listening
-      if (!manualStopRef.current) {
-        setTimeout(() => {
-          try {
-            rec.start();
-          } catch {
-            // Already active
-          }
-        }, 200);
-      }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     };
 
     recognitionRef.current = rec;
     return rec;
-  }, []);
+  }, [resetSilenceTimer]);
 
   // Auto-initialize background voice listener on mount
   useEffect(() => {
