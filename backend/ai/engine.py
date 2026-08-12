@@ -89,7 +89,25 @@ class AIEngine:
                     "requires_confirmation": False
                 }
 
-        # 4. Auto Reply to Friends Intent ("auto reply to Alex", "reply to Mom if she messages", "check and reply to Rahul")
+        # 4. Check Incoming Messages Intent ("who messaged me", "check my messages", "did anyone message me", "read new messages")
+        if re.search(r'\b(?:who\s+(?:has\s+)?messaged?\s+me|who\s+sent\s+(?:a\s+)?message|check\s+(?:my\s+)?messages?|read\s+(?:my\s+)?messages?|did\s+anyone\s+message\s+me|unread\s+messages?)\b', text_lower):
+            return {
+                "intent": "check_incoming_messages",
+                "target": "whatsapp",
+                "requires_confirmation": False
+            }
+
+        # 5. Add Friend to Friends List Intent ("add Alex to my friends list", "add Mom to my friends")
+        add_friend_m = re.search(r'\b(?:add|include)\s+([a-z0-9\s]+?)\s+(?:to\s+my\s+friends?\s*(?:list)?|as\s+(?:a\s+)?friend)\b', text_lower)
+        if add_friend_m:
+            friend_name = add_friend_m.group(1).strip()
+            return {
+                "intent": "add_friend",
+                "target": friend_name,
+                "requires_confirmation": False
+            }
+
+        # 6. Auto Reply to Friends Intent ("auto reply to Alex", "reply to Mom if she messages", "check and reply to Rahul")
         auto_reply_m = re.search(r'\b(?:auto\s+reply|reply|check\s+and\s+reply)\s+(?:to\s+)?([a-z0-9\s]+?)(?:\s+(?:saying|that|with)\s+(.+))?$', text_lower)
         if auto_reply_m and not text_lower.startswith("send "):
             contact = auto_reply_m.group(1).replace("on whatsapp", "").replace("my friend", "").strip()

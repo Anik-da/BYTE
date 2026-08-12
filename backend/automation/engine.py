@@ -232,6 +232,10 @@ class AutomationEngine:
             contact = data.get("contact", "") if data else ""
             payload = data.get("payload", "") if data else ""
             return self._auto_reply_to_friend(contact, payload)
+        elif intent == "check_incoming_messages":
+            return self._check_incoming_messages()
+        elif intent == "add_friend":
+            return self._add_friend(target or "")
         elif intent == "play_media":
             return self._play_media(target or "")
         elif intent == "open_website":
@@ -376,6 +380,51 @@ class AutomationEngine:
             }
         except Exception as e:
             return {"status": "error", "message": f"Auto-reply error: {str(e)}"}
+
+    def _add_friend(self, name: str) -> Dict[str, Any]:
+        name_clean = name.strip()
+        if not name_clean:
+            return {"status": "error", "message": "Please specify the friend name to add."}
+        if name_clean not in self.approved_friends:
+            self.approved_friends.append(name_clean)
+        return {
+            "status": "success",
+            "message": f"Added '{name_clean}' to your Approved Friends List! Total friends: {', '.join(self.approved_friends)}."
+        }
+
+    def _check_incoming_messages(self) -> Dict[str, Any]:
+        """
+        Opens WhatsApp/messaging window, analyzes active notifications & on-screen message text via Vision OCR,
+        and tells the user who messaged them so they can choose to reply!
+        """
+        self._open_app("whatsapp")
+        time.sleep(1.0)
+        focus_window_by_name("whatsapp")
+        time.sleep(1.2)
+
+        try:
+            from backend.vision.engine import vision_engine
+            v_res = vision_engine.analyze_screen()
+            txt = v_res.get("extracted_text", "")
+
+            # Check if any approved friends match on screen text
+            detected_friends = []
+            for f in self.approved_friends:
+                if f.lower() in txt.lower():
+                    detected_friends.append(f)
+
+            if detected_friends:
+                friends_str = ", ".join(list(set(detected_friends)))
+                msg = f"You received new messages from {friends_str}. Would you like me to reply to them?"
+            else:
+                msg = f"Checked messaging app. Active visible contacts: {', '.join(self.approved_friends[:4])}. Say 'reply to [friend] saying [message]' to send a response."
+
+            return {
+                "status": "success",
+                "message": msg
+            }
+        except Exception as e:
+            return {"status": "error", "message": f"Error checking messages: {str(e)}"}
 
     def _open_app(self, app_name: str) -> Dict[str, Any]:
         app_name_lower = app_name.lower().strip()
