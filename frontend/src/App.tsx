@@ -338,28 +338,30 @@ export default function App() {
       />
 
       {booted && (
-        <div className="flex min-h-screen flex-col overflow-y-auto p-3 sm:p-4">
-          <StatusBar onOpenSettings={() => setIsSettingsOpen(true)} />
+        <div className="flex h-screen w-screen flex-col overflow-hidden p-3 bg-grid bg-radial-fade">
+          <div className="shrink-0 mb-2">
+            <StatusBar onOpenSettings={() => setIsSettingsOpen(true)} />
+          </div>
 
           {/* Main grid: left column | center | right column */}
-          <div className="mt-3 grid flex-1 grid-cols-1 gap-3 lg:grid-cols-[280px_1fr_340px]">
+          <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-hidden lg:grid-cols-[280px_1fr_340px]">
             {/* Left column */}
-            <div className="hidden min-h-[500px] flex-col gap-3 lg:flex">
+            <div className="hidden flex-col gap-2.5 overflow-hidden lg:flex">
               <SystemPanel speaking={speech.speaking} listening={speech.listening} />
-              <div className="min-h-[220px] flex-1">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <EventLog />
               </div>
             </div>
 
             {/* Center column */}
-            <div className="flex min-h-0 flex-col items-center justify-center">
-              <div className="relative flex flex-col items-center">
+            <div className="flex min-h-0 flex-col items-center justify-between overflow-y-auto py-2">
+              <div className="relative flex flex-col items-center my-auto">
                 <ArcReactor
                   active={booted}
                   speaking={speech.speaking}
                   listening={speech.listening}
                 />
-                <div className="mt-4 text-center">
+                <div className="mt-3 text-center">
                   <div className="hud-display text-2xl font-black tracking-[0.3em] text-hud-red hud-glow-strong">
                     BYTE
                   </div>
@@ -376,42 +378,42 @@ export default function App() {
               </div>
 
               {/* Radar + Neural side by side */}
-              <div className="mt-4 grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="hud-panel hud-corner clip-notch flex flex-col items-center p-3">
-                  <h3 className="hud-display mb-2 text-[10px] font-bold tracking-widest text-hud-red hud-glow">
+              <div className="mt-2 grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-2 shrink-0">
+                <div className="hud-panel hud-corner flex flex-col items-center p-2.5">
+                  <h3 className="hud-display mb-1.5 text-[10px] font-bold tracking-widest text-hud-red hud-glow">
                     RADAR SWEEP
                   </h3>
                   <RadarSweep active={booted} />
                 </div>
-                <div className="hud-panel hud-corner clip-notch flex flex-col p-3">
-                  <h3 className="hud-display mb-2 text-[10px] font-bold tracking-widest text-hud-red hud-glow">
+                <div className="hud-panel hud-corner flex flex-col p-2.5">
+                  <h3 className="hud-display mb-1.5 text-[10px] font-bold tracking-widest text-hud-red hud-glow">
                     NEURAL NETWORK
                   </h3>
-                  <div className="h-[140px] w-full">
+                  <div className="h-[120px] w-full">
                     <NeuralNetwork />
                   </div>
                 </div>
               </div>
 
               {/* Mobile system panel */}
-              <div className="mt-4 w-full max-w-sm lg:hidden">
+              <div className="mt-2 w-full max-w-sm lg:hidden">
                 <SystemPanel speaking={speech.speaking} listening={speech.listening} />
               </div>
             </div>
 
             {/* Right column */}
-            <div className="hidden min-h-[500px] flex-col gap-2.5 lg:flex">
-              <div className="grid grid-cols-2 gap-2.5">
+            <div className="hidden flex-col gap-2.5 overflow-hidden lg:flex">
+              <div className="grid grid-cols-2 gap-2.5 shrink-0">
                 <ThreatPanel />
                 <WorldClock />
               </div>
-              <div className="h-[170px] shrink-0">
+              <div className="h-[140px] shrink-0">
                 <FileNavigator
                   activeFileId={activeFileId}
                   onSelectFile={setActiveFileId}
                 />
               </div>
-              <div className="min-h-[360px] flex-1">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <ConversationLog
                   messages={messages}
                   input={input}
@@ -459,12 +461,12 @@ export default function App() {
           </div>
 
           {/* Quick commands bar */}
-          <div className="mt-3">
+          <div className="mt-2 shrink-0">
             <QuickCommands onCommand={handleQuickCommand} />
           </div>
 
           {speech.error && (
-            <div className="mt-2 border border-hud-danger/40 bg-hud-danger/10 px-3 py-1.5 hud-mono text-[11px] text-hud-danger">
+            <div className="mt-1 shrink-0 border border-hud-danger/40 bg-hud-danger/10 px-3 py-1 hud-mono text-[11px] text-hud-danger">
               {speech.error}
             </div>
           )}

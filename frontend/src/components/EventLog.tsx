@@ -58,7 +58,7 @@ export function EventLog() {
   };
 
   return (
-    <div className="hud-panel hud-corner clip-notch flex h-full flex-col p-3">
+    <div className="hud-panel hud-corner flex h-full flex-col p-3">
       <div className="mb-2 flex items-center justify-between">
         <h3 className="hud-display text-[10px] font-bold tracking-widest text-hud-red hud-glow">
           EVENT LOG

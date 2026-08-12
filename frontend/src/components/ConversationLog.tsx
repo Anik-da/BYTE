@@ -76,7 +76,7 @@ export function ConversationLog({
   const currentSelectValue = aiProvider === 'ollama' ? ollamaModel : selectedModel;
 
   return (
-    <div className="hud-panel hud-corner clip-notch flex h-full flex-col p-4">
+    <div className="hud-panel hud-corner flex h-full flex-col p-3.5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="hud-display text-xs font-bold tracking-widest text-hud-red hud-glow">
           COMMUNICATION LOG

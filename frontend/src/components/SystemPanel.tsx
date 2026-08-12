@@ -80,7 +80,7 @@ export function SystemPanel({ speaking, listening }: { speaking: boolean; listen
   const stats = useLiveStats();
 
   return (
-    <div className="hud-panel hud-corner clip-notch flex shrink-0 flex-col p-3.5">
+    <div className="hud-panel hud-corner flex shrink-0 flex-col p-3.5">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="hud-display text-xs font-bold tracking-widest text-hud-red hud-glow">
           SYSTEM DIAGNOSTICS
