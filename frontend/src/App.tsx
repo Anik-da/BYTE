@@ -15,10 +15,28 @@ import { EventLog } from '@/components/EventLog';
 import { QuickCommands } from '@/components/QuickCommands';
 import { useSpeech } from '@/hooks/useSpeech';
 import { parseCommand } from '@/lib/commandEngine';
-import { askGroq, type GroqModel } from '@/lib/groq';
+import { askGroq, DEFAULT_GROQ_MODEL, normalizeGroqModel, type GroqModel } from '@/lib/groq';
 import { FileNavigator } from '@/components/FileNavigator';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import { sendDesktopCommand, fetchConversationHistory, clearConversationHistory, fetchBackendSettings, saveBackendSettings } from '@/lib/desktopApi';
+import {
+  sendDesktopCommand,
+  fetchConversationHistory,
+  clearConversationHistory,
+  fetchBackendSettings,
+  saveBackendSettings,
+  fetchVoiceStatus,
+  fetchVoiceEvents,
+  armVoiceListening,
+  disarmVoiceListening,
+  stopBackendSpeech,
+  toggleContinuousVoice,
+  setBackendVoiceMuted,
+  fetchLocalModels,
+  fetchGroqModels,
+  type VoiceStatus,
+  type LocalOllamaModel,
+  type GroqModelInfo,
+} from '@/lib/desktopApi';
 import { UpdateDialog } from '@/components/UpdateDialog';
 import { checkForUpdate } from '@/lib/updater';
 import { Update } from '@tauri-apps/plugin-updater';
@@ -41,7 +59,7 @@ export default function App() {
   const [scanActive, setScanActive] = useState(false);
   const [lockdownActive, setLockdownActive] = useState(false);
   const [decryptActive, setDecryptActive] = useState(false);
-  const [selectedModel, setSelectedModel] = useState<GroqModel>('groq/compound');
+  const [selectedModel, setSelectedModel] = useState<GroqModel>(DEFAULT_GROQ_MODEL);
   const [loading, setLoading] = useState(false);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -50,22 +68,59 @@ export default function App() {
   const [updateNotes, setUpdateNotes] = useState('');
   const [updateObj, setUpdateObj] = useState<Update | null>(null);
 
-  const speech = useSpeech();
+  const handleResultRef = useRef<(text: string) => void>(() => {});
+  const handleSpeechCommand = useCallback((text: string) => {
+    const raw = text.trim();
+    if (!raw) return;
+    const wakeWordPattern = /\b(hey\s+byte|byte|hey\s+jarvis|jarvis|wake\s+up|wake\s+up\s+byte|hello\s+byte|ok\s+byte|computer)\b/i;
+    const match = raw.toLowerCase().match(wakeWordPattern);
+    if (match && match.index !== undefined) {
+      const commandIndex = match.index + match[0].length;
+      const extracted = raw.slice(commandIndex).replace(/^[,\s.:?!]+/, '').trim();
+      if (extracted) {
+        soundFx.playChirp();
+        handleResultRef.current?.(extracted);
+        return;
+      }
+    }
+    handleResultRef.current?.(raw);
+  }, []);
+  const speech = useSpeech({ onSpeechCommand: handleSpeechCommand, autoStart: false });
   const pendingTranscriptRef = useRef(false);
 
+  const [backendVoice, setBackendVoice] = useState<VoiceStatus | null>(null);
+  const lastVoiceSeqRef = useRef<number | null>(null);
+  const voiceSyncInFlightRef = useRef(false);
+
   const [aiProvider, setAiProvider] = useState<'ollama' | 'groq' | 'openrouter'>('groq');
-  const [ollamaModel, setOllamaModel] = useState<string>('llama3');
+  const [ollamaModel, setOllamaModel] = useState<string>('gemma3:4b');
   const [openrouterModel, setOpenrouterModel] = useState<string>('liquid/lfm-2.5-2.6b:free');
+  const [localModels, setLocalModels] = useState<LocalOllamaModel[]>([]);
+  const [groqModels, setGroqModels] = useState<GroqModelInfo[]>([]);
 
   const syncSettings = useCallback(() => {
-    fetchBackendSettings().then((s: Record<string, any>) => {
-      if (s) {
-        if (s.ai_provider) setAiProvider(s.ai_provider as any);
-        if (s.ollama_model) setOllamaModel(s.ollama_model);
-        if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
-        if (s.groq_model) setSelectedModel(s.groq_model as GroqModel);
-      }
-    });
+    Promise.all([fetchBackendSettings(), fetchLocalModels(), fetchGroqModels()]).then(
+      ([s, locals, groqs]) => {
+        if (locals && locals.length > 0) setLocalModels(locals);
+        if (groqs && groqs.length > 0) setGroqModels(groqs);
+        if (s) {
+          if (s.ai_provider) setAiProvider(s.ai_provider as any);
+          if (s.ollama_model) {
+            const installedNames = (locals || []).map((m) => m.name);
+            if (installedNames.length > 0 && !installedNames.includes(s.ollama_model)) {
+              setOllamaModel(installedNames[0]);
+            } else {
+              setOllamaModel(s.ollama_model);
+            }
+          } else if (locals && locals.length > 0) {
+            setOllamaModel(locals[0].name);
+          }
+          if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
+          if (s.groq_model) setSelectedModel(normalizeGroqModel(s.groq_model));
+          if (s.voice_muted !== undefined) setMuted(Boolean(s.voice_muted));
+        }
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -123,6 +178,62 @@ export default function App() {
       }
     });
   }, [booted]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync live 24/7 backend voice listener state & spoken command log
+  useEffect(() => {
+    if (!booted) return;
+    let active = true;
+
+    const pollVoice = async () => {
+      if (voiceSyncInFlightRef.current) return;
+      voiceSyncInFlightRef.current = true;
+      try {
+        const vs = await fetchVoiceStatus();
+        if (!active || !vs) return;
+        setBackendVoice(vs);
+
+        if (lastVoiceSeqRef.current === null) {
+          lastVoiceSeqRef.current = vs.event_seq;
+          return;
+        }
+
+        if (vs.event_seq > lastVoiceSeqRef.current) {
+          const res = await fetchVoiceEvents(lastVoiceSeqRef.current);
+          if (!active) return;
+          lastVoiceSeqRef.current = res.seq;
+          if (res.events && res.events.length > 0) {
+            setMessages((prev) => {
+              const seen = new Set(prev.map((m) => m.id));
+              const appended: Message[] = [];
+              for (const evt of res.events) {
+                if (!seen.has(evt.id)) {
+                  appended.push({
+                    id: evt.id,
+                    role: evt.role,
+                    text: evt.text,
+                    time: new Date(evt.timestamp * 1000).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    }),
+                  });
+                }
+              }
+              return appended.length > 0 ? [...prev, ...appended] : prev;
+            });
+          }
+        }
+      } finally {
+        voiceSyncInFlightRef.current = false;
+      }
+    };
+
+    pollVoice();
+    const interval = setInterval(pollVoice, 800);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [booted]);
 
   const handleResult = useCallback(
     async (userText: string) => {
@@ -206,48 +317,7 @@ export default function App() {
     },
     [muted, selectedModel]
   );
-
-  // Wake word detection ("Hey BYTE" / "Jarvis" / "BYTE") and transcript processing
-  const lastProcessedTranscriptRef = useRef('');
-  useEffect(() => {
-    const raw = (speech.transcript || speech.interim).trim();
-    if (!raw) return;
-
-    const lower = raw.toLowerCase();
-    const wakeWordPattern = /\b(hey\s+byte|byte|hey\s+jarvis|jarvis|wake\s+up|wake\s+up\s+byte|hello\s+byte|ok\s+byte|computer)\b/i;
-
-    if (wakeWordPattern.test(lower)) {
-      const match = lower.match(wakeWordPattern);
-      const commandIndex = (match?.index ?? 0) + (match?.[0].length ?? 0);
-      const extractedCommand = raw.slice(commandIndex).replace(/^[,\s.:?!]+/, '').trim();
-
-      if (extractedCommand && extractedCommand !== lastProcessedTranscriptRef.current) {
-        lastProcessedTranscriptRef.current = extractedCommand;
-        pendingTranscriptRef.current = false;
-        soundFx.playChirp();
-        speech.stopListening();
-        handleResult(extractedCommand);
-      } else if (!extractedCommand && !speech.speaking && !loading) {
-        // User spoke wake word alone; trigger instant listening response
-        const wakeText = "Yes? I'm listening.";
-        lastProcessedTranscriptRef.current = raw;
-        soundFx.playWakeChime();
-        setMessages((prev) => [
-          ...prev,
-          { id: makeId(), role: 'byte', text: wakeText, time: nowTime() }
-        ]);
-        speech.speak(wakeText, () => {
-          speech.startListening();
-        });
-      }
-    } else if (!speech.listening && speech.transcript) {
-      const text = speech.transcript.trim();
-      if (text && text !== lastProcessedTranscriptRef.current) {
-        lastProcessedTranscriptRef.current = text;
-        handleResult(text);
-      }
-    }
-  }, [speech.listening, speech.transcript, speech.interim, speech.speaking, loading, handleResult]);
+  handleResultRef.current = handleResult;
 
   const handleSend = useCallback(() => {
     const text = input.trim();
@@ -263,7 +333,25 @@ export default function App() {
     [handleResult],
   );
 
-  const handleToggleListen = useCallback(() => {
+  const handleToggleListen = useCallback(async () => {
+    if (backendVoice && !backendVoice.mic_error) {
+      if (backendVoice.is_speaking) {
+        await stopBackendSpeech();
+        const updated = await fetchVoiceStatus();
+        if (updated) setBackendVoice(updated);
+        return;
+      }
+      if (backendVoice.armed) {
+        const updated = await disarmVoiceListening();
+        if (updated) setBackendVoice(updated);
+        return;
+      }
+      soundFx.playWakeChime();
+      const updated = await armVoiceListening();
+      if (updated) setBackendVoice(updated);
+      return;
+    }
+
     if (speech.listening) {
       speech.stopListening();
       pendingTranscriptRef.current = true;
@@ -271,12 +359,22 @@ export default function App() {
       pendingTranscriptRef.current = true;
       speech.startListening();
     }
-  }, [speech]);
+  }, [backendVoice, speech]);
+
+  const handleToggleWakeWord = useCallback(async () => {
+    const currentlyOn = Boolean(backendVoice?.continuous_enabled && !backendVoice?.paused);
+    const nextEnabled = !currentlyOn;
+    await saveBackendSettings({ wake_word_enabled: nextEnabled });
+    const updated = await fetchVoiceStatus();
+    if (updated) setBackendVoice(updated);
+  }, [backendVoice]);
 
   const handleToggleMute = useCallback(() => {
     setMuted((m) => {
-      if (!m) speech.cancelSpeech();
-      return !m;
+      const next = !m;
+      if (next) speech.cancelSpeech();
+      void setBackendVoiceMuted(next);
+      return next;
     });
   }, [speech]);
 
@@ -353,7 +451,10 @@ export default function App() {
           <div className="grid flex-1 grid-cols-1 gap-2.5 overflow-hidden lg:grid-cols-[280px_1fr_340px]">
             {/* Left column */}
             <div className="hidden flex-col gap-2.5 overflow-hidden lg:flex">
-              <SystemPanel speaking={speech.speaking} listening={speech.listening} />
+              <SystemPanel
+                speaking={speech.speaking || Boolean(backendVoice?.is_speaking)}
+                listening={speech.listening || Boolean(backendVoice?.armed) || Boolean(backendVoice?.is_listening)}
+              />
               <div className="min-h-0 flex-1 overflow-hidden">
                 <EventLog />
               </div>
@@ -365,8 +466,8 @@ export default function App() {
               <div className="relative flex flex-col items-center my-auto">
                 <ArcReactor
                   active={booted}
-                  speaking={speech.speaking}
-                  listening={speech.listening}
+                  speaking={speech.speaking || Boolean(backendVoice?.is_speaking)}
+                  listening={speech.listening || Boolean(backendVoice?.armed)}
                   onClick={handleToggleListen}
                 />
                 <div className="mt-3 text-center">
@@ -374,14 +475,35 @@ export default function App() {
                     BYTE
                   </div>
                   <div className="hud-text mt-1 text-xs uppercase tracking-widest text-hud-red/60">
-                    {speech.listening
-                      ? 'Listening...'
-                      : speech.speaking
-                        ? 'Responding...'
-                        : muted
-                          ? 'Voice muted'
-                          : 'Standing by'}
+                    {speech.listening || backendVoice?.armed
+                      ? 'Listening... Speak your command'
+                      : backendVoice?.transcribing
+                        ? 'Processing voice...'
+                        : speech.speaking || backendVoice?.is_speaking
+                          ? 'Responding...'
+                          : muted || backendVoice?.muted
+                            ? 'Voice muted'
+                            : backendVoice?.continuous_active && !backendVoice?.paused
+                              ? '24/7 Wake Word Active ("Hey BYTE")'
+                              : backendVoice?.paused
+                                ? '24/7 Wake Word Paused'
+                                : 'Standing by'}
                   </div>
+                  {backendVoice && (
+                    <button
+                      type="button"
+                      onClick={handleToggleWakeWord}
+                      className={`mt-2 border px-2.5 py-0.5 hud-mono text-[10px] uppercase tracking-wider transition-colors ${
+                        backendVoice.continuous_active && !backendVoice.paused
+                          ? 'border-hud-success/50 bg-hud-success/10 text-hud-success hover:bg-hud-success/20'
+                          : 'border-hud-red/30 bg-hud-red/10 text-hud-red/70 hover:bg-hud-red/20'
+                      }`}
+                    >
+                      {backendVoice.continuous_active && !backendVoice.paused
+                        ? '● 24/7 Mic Always On (Click to Turn Off)'
+                        : '○ 24/7 Mic Off (Click to Enable)'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -405,7 +527,10 @@ export default function App() {
 
               {/* Mobile system panel */}
               <div className="mt-2 w-full max-w-sm lg:hidden">
-                <SystemPanel speaking={speech.speaking} listening={speech.listening} />
+                <SystemPanel
+                  speaking={speech.speaking || Boolean(backendVoice?.is_speaking)}
+                  listening={speech.listening || Boolean(backendVoice?.armed) || Boolean(backendVoice?.is_listening)}
+                />
               </div>
             </div>
 
@@ -427,10 +552,10 @@ export default function App() {
                   input={input}
                   setInput={setInput}
                   onSend={handleSend}
-                  listening={speech.listening}
+                  listening={speech.listening || Boolean(backendVoice?.armed)}
                   interim={speech.interim}
                   onToggleListen={handleToggleListen}
-                  speaking={speech.speaking}
+                  speaking={speech.speaking || Boolean(backendVoice?.is_speaking)}
                   muted={muted}
                   onToggleMute={handleToggleMute}
                   speechSupported={speech.supported}
@@ -439,6 +564,8 @@ export default function App() {
                   aiProvider={aiProvider}
                   ollamaModel={ollamaModel}
                   openrouterModel={openrouterModel}
+                  localModels={localModels}
+                  groqModels={groqModels}
                   onUpdateModelSetting={handleUpdateModelSetting}
                   onClearHistory={handleClearHistory}
                   loading={loading}
@@ -453,10 +580,10 @@ export default function App() {
                 input={input}
                 setInput={setInput}
                 onSend={handleSend}
-                listening={speech.listening}
+                listening={speech.listening || Boolean(backendVoice?.armed)}
                 interim={speech.interim}
                 onToggleListen={handleToggleListen}
-                speaking={speech.speaking}
+                speaking={speech.speaking || Boolean(backendVoice?.is_speaking)}
                 muted={muted}
                 onToggleMute={handleToggleMute}
                 speechSupported={speech.supported}
@@ -465,6 +592,8 @@ export default function App() {
                 aiProvider={aiProvider}
                 ollamaModel={ollamaModel}
                 openrouterModel={openrouterModel}
+                localModels={localModels}
+                groqModels={groqModels}
                 onUpdateModelSetting={handleUpdateModelSetting}
                 onClearHistory={handleClearHistory}
                 loading={loading}

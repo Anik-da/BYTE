@@ -16,7 +16,7 @@ export interface AppUpdateStatus {
   isReadyToRestart: boolean;
 }
 
-export const CURRENT_APP_VERSION = '1.1.0';
+export const CURRENT_APP_VERSION = '1.2.0';
 
 export async function checkForUpdate(): Promise<{
   updateAvailable: boolean;

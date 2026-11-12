@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Mic, MicOff, Send, Volume2, VolumeX, Trash2 } from 'lucide-react';
 import { soundFx } from '@/lib/soundFx';
+import { ACTIVE_GROQ_MODELS, DEFAULT_GROQ_MODEL } from '@/lib/groq';
+import type { LocalOllamaModel, GroqModelInfo } from '@/lib/desktopApi';
 
 export interface Message {
   id: string;
@@ -26,6 +28,8 @@ interface ConversationLogProps {
   aiProvider?: 'ollama' | 'groq' | 'openrouter';
   ollamaModel?: string;
   openrouterModel?: string;
+  localModels?: LocalOllamaModel[];
+  groqModels?: GroqModelInfo[];
   onUpdateModelSetting?: (provider: 'ollama' | 'groq' | 'openrouter', model: string) => void;
   onClearHistory?: () => void;
   loading: boolean;
@@ -46,8 +50,10 @@ export function ConversationLog({
   selectedModel,
   setSelectedModel,
   aiProvider = 'groq',
-  ollamaModel = 'llama3',
+  ollamaModel = 'gemma3:4b',
   openrouterModel = 'liquid/lfm-2.5-2.6b:free',
+  localModels = [],
+  groqModels = [],
   onUpdateModelSetting,
   onClearHistory,
   loading,
@@ -79,9 +85,11 @@ export function ConversationLog({
 
   const handleSelectChange = (val: string) => {
     if (val === 'switch-groq') {
-      onUpdateModelSetting?.('groq', 'groq/compound');
+      const nextGroq = (groqModels[0]?.id || DEFAULT_GROQ_MODEL) as string;
+      onUpdateModelSetting?.('groq', nextGroq);
     } else if (val === 'switch-ollama') {
-      onUpdateModelSetting?.('ollama', 'llama3');
+      const nextLocal = localModels[0]?.name || ollamaModel || 'gemma3:4b';
+      onUpdateModelSetting?.('ollama', nextLocal);
     } else if (val === 'switch-openrouter') {
       onUpdateModelSetting?.('openrouter', 'liquid/lfm-2.5-2.6b:free');
     } else if (aiProvider === 'ollama') {
@@ -93,6 +101,12 @@ export function ConversationLog({
       onUpdateModelSetting?.('groq', val);
     }
   };
+
+  const groqOptions = groqModels.length > 0 ? groqModels : ACTIVE_GROQ_MODELS;
+  const hasCurrentOllama = localModels.some((m) => m.name === ollamaModel);
+  const ollamaOptions: LocalOllamaModel[] = hasCurrentOllama
+    ? localModels
+    : [...localModels, ...(ollamaModel ? [{ name: ollamaModel, size: 'Selected' }] : [])];
 
   const currentSelectValue =
     aiProvider === 'ollama'
@@ -120,17 +134,17 @@ export function ConversationLog({
           >
             {aiProvider === 'ollama' ? (
               <>
-                <option value="llama3" className="bg-slate-950">OLLAMA: LLAMA 3 (8B)</option>
-                <option value="qwen2" className="bg-slate-950">OLLAMA: QWEN 2 (7B)</option>
-                <option value="gemma2" className="bg-slate-950">OLLAMA: GEMMA 2 (9B)</option>
-                <option value="deepseek-coder" className="bg-slate-950">OLLAMA: DEEPSEEK CODER</option>
+                {ollamaOptions.map((m) => (
+                  <option key={m.name} value={m.name} className="bg-slate-950">
+                    OLLAMA: {m.name.toUpperCase()} {m.size ? `(${m.size})` : ''}
+                  </option>
+                ))}
                 <option value="switch-openrouter" className="bg-slate-950 text-hud-gold">🌐 SWITCH TO OPENROUTER</option>
                 <option value="switch-groq" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO GROQ CLOUD</option>
               </>
             ) : aiProvider === 'openrouter' ? (
               <>
                 <option value="liquid/lfm-2.5-2.6b:free" className="bg-slate-950">OPENROUTER: LIQUID AI LFM2.5 (FREE)</option>
-                <option value="fish-audio/s2.1-pro:free" className="bg-slate-950">OPENROUTER: FISH AUDIO S2.1 (FREE)</option>
                 <option value="deepseek/deepseek-r1:free" className="bg-slate-950">OPENROUTER: DEEPSEEK R1 (FREE)</option>
                 <option value="meta-llama/llama-3.3-70b-instruct:free" className="bg-slate-950">OPENROUTER: LLAMA 3.3 70B (FREE)</option>
                 <option value="switch-ollama" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO LOCAL OLLAMA</option>
@@ -138,9 +152,11 @@ export function ConversationLog({
               </>
             ) : (
               <>
-                <option value="groq/compound" className="bg-slate-950">GROQ COMPOUND</option>
-                <option value="groq/compound-mini" className="bg-slate-950">GROQ COMPOUND MINI</option>
-                <option value="minimaxai/minimax-m2.7" className="bg-slate-950">MINIMAX M2.7</option>
+                {groqOptions.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-slate-950">
+                    GROQ: {m.id.toUpperCase()}
+                  </option>
+                ))}
                 <option value="switch-openrouter" className="bg-slate-950 text-hud-gold">🌐 SWITCH TO OPENROUTER</option>
                 <option value="switch-ollama" className="bg-slate-950 text-hud-gold">⚙️ SWITCH TO LOCAL OLLAMA</option>
               </>

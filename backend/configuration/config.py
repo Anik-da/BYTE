@@ -10,9 +10,9 @@ class ConfigManager:
     def __init__(self):
         self._defaults = {
             "ai_provider": "ollama",  # Local AI First
-            "ollama_model": "llama3",
-            "groq_model": "groq/compound",
-            "wake_word_enabled": True,
+            "ollama_model": "qwen2.5:0.5b",
+            "groq_model": "openai/gpt-oss-120b",
+            "wake_word_enabled": False,
             "auto_launch": False,
             "auto_update": True,
             "theme": "hud-red",

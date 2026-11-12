@@ -65,7 +65,18 @@ export interface SpeechHook {
   selectedVoice: SpeechSynthesisVoice | null;
 }
 
-export function useSpeech(): SpeechHook {
+export interface UseSpeechOptions {
+  onSpeechCommand?: (text: string) => void;
+  autoStart?: boolean;
+}
+
+export function useSpeech(options?: UseSpeechOptions): SpeechHook {
+  const autoStart = options?.autoStart ?? false;
+  const onSpeechCommandRef = useRef(options?.onSpeechCommand);
+  useEffect(() => {
+    onSpeechCommandRef.current = options?.onSpeechCommand;
+  }, [options?.onSpeechCommand]);
+
   const [supported] = useState(() =>
     typeof window !== 'undefined' &&
     (('SpeechRecognition' in window) ||
@@ -83,24 +94,6 @@ export function useSpeech(): SpeechHook {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const manualStopRef = useRef(false);
   const finalTranscriptRef = useRef('');
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const resetSilenceTimer = useCallback(() => {
-    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-    // Turn OFF microphone if no speech/command detected within 6 seconds of silence
-    silenceTimerRef.current = setTimeout(() => {
-      manualStopRef.current = true;
-      setListening(false);
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.stop();
-        } catch {}
-      }
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    }, 6000);
-  }, []);
 
   // Initialize recognition lazily
   const ensureRecognition = useCallback(() => {
@@ -116,11 +109,9 @@ export function useSpeech(): SpeechHook {
     rec.onstart = () => {
       setListening(true);
       setError(null);
-      resetSilenceTimer();
     };
 
     rec.onresult = (event: SpeechRecognitionEvent) => {
-      resetSilenceTimer();
       let interimText = '';
       let finalText = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -129,17 +120,22 @@ export function useSpeech(): SpeechHook {
         else interimText += res[0].transcript;
       }
       if (finalText) {
-        finalTranscriptRef.current = (finalTranscriptRef.current + ' ' + finalText).trim();
-        setTranscript(finalTranscriptRef.current);
+        const text = (finalTranscriptRef.current + ' ' + finalText).trim();
+        finalTranscriptRef.current = text;
+        setTranscript(text);
+        if (text) {
+          onSpeechCommandRef.current?.(text);
+        }
       }
       setInterim(interimText);
     };
 
     rec.onerror = (event: Event) => {
       const e = event as unknown as { error?: string };
-      if (e.error === 'no-speech') {
-        // Continuous mode no-speech is normal
-      } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      if (e.error === 'no-speech' || e.error === 'network' || e.error === 'service-not-allowed') {
+        // Suppress browser WebSpeech network errors; backend MediaRecorder + Whisper handles transcription natively
+        console.warn(`[SpeechRecognition] WebSpeech API error '${e.error}'. Using backend Whisper recorder.`);
+      } else if (e.error === 'not-allowed') {
         setError('Microphone access denied.');
       } else if (e.error === 'aborted') {
         // user-initiated, ignore
@@ -149,26 +145,42 @@ export function useSpeech(): SpeechHook {
     };
 
     rec.onend = () => {
-      setListening(false);
       setInterim('');
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (finalTranscriptRef.current.trim()) {
+        const text = finalTranscriptRef.current.trim();
+        onSpeechCommandRef.current?.(text);
+        finalTranscriptRef.current = '';
+      }
+
+      // Auto-restart for continuous hands-free wake word listening (no 6s auto-shutoff)
+      if (!manualStopRef.current) {
+        setTimeout(() => {
+          if (!manualStopRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {}
+          }
+        }, 400);
+      } else {
+        setListening(false);
+      }
     };
 
     recognitionRef.current = rec;
     return rec;
-  }, [resetSilenceTimer]);
+  }, []);
 
-  // Auto-initialize background voice listener on mount
+  // Optional browser speech recognition loop (disabled when 24/7 backend wake-word daemon handles mic)
   useEffect(() => {
+    if (!autoStart) return;
+    manualStopRef.current = false;
     const rec = ensureRecognition();
     if (rec) {
       try {
         rec.start();
-      } catch {
-        // Ignore if already active
-      }
+      } catch (e) {}
     }
-  }, [ensureRecognition]);
+  }, [autoStart, ensureRecognition]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -191,8 +203,17 @@ export function useSpeech(): SpeechHook {
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaStreamRef.current = stream;
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-        const recorder = new MediaRecorder(stream, { mimeType });
+
+        let mimeType = '';
+        if (typeof MediaRecorder !== 'undefined') {
+          if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+          else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+          else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+          else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+          else if (MediaRecorder.isTypeSupported('audio/wav')) mimeType = 'audio/wav';
+        }
+
+        const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) audioChunksRef.current.push(e.data);
         };
@@ -202,7 +223,7 @@ export function useSpeech(): SpeechHook {
       }
     } catch (err) {
       console.warn("Microphone access error:", err);
-      setError("Microphone permission denied.");
+      setError("Microphone permission denied or device busy.");
     }
 
     // 2. Try WebSpeech API parallel recognition
@@ -227,16 +248,16 @@ export function useSpeech(): SpeechHook {
       } catch (e) {}
     }
 
-    // Stop MediaRecorder and transcribe via backend AI if needed
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      setTimeout(async () => {
+    // Stop MediaRecorder cleanly using onstop event and transcribe via backend AI
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.onstop = async () => {
         if (mediaStreamRef.current) {
           mediaStreamRef.current.getTracks().forEach((track) => track.stop());
         }
         if (audioChunksRef.current.length > 0) {
-          const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-          if (!finalTranscriptRef.current.trim() && blob.size > 1000) {
+          const blob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          if (!finalTranscriptRef.current.trim() && blob.size > 100) {
             try {
               const formData = new FormData();
               formData.append('file', blob, 'recording.webm');
@@ -246,15 +267,21 @@ export function useSpeech(): SpeechHook {
               });
               const data = await res.json();
               if (data.transcript && data.transcript.trim()) {
-                finalTranscriptRef.current = data.transcript.trim();
-                setTranscript(data.transcript.trim());
+                const text = data.transcript.trim();
+                finalTranscriptRef.current = text;
+                setTranscript(text);
+                onSpeechCommandRef.current?.(text);
+              } else {
+                setError('No speech detected. Check your microphone and try again.');
               }
             } catch (err) {
-              console.warn("Backend transcription fallback error:", err);
+              console.warn('Backend transcription fallback error:', err);
+              setError('Voice transcription failed. Verify backend is online.');
             }
           }
         }
-      }, 300);
+      };
+      recorder.stop();
     }
   }, []);
 

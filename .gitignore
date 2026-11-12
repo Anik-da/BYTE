@@ -18,6 +18,12 @@ target/
 byte_memory.db
 database/*.db
 
+# Python & Temp Artifacts
+__pycache__/
+*.pyc
+scratch/
+*.timestamp-*.mjs
+
 # OS Files
 .DS_Store
 Thumbs.db

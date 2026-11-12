@@ -1,8 +1,28 @@
+import asyncio
 import os
 import re
 import httpx
 from typing import Dict, Any, Optional
 from backend.memory.db import get_settings
+
+ACTIVE_GROQ_MODELS = [
+    {"id": "openai/gpt-oss-120b", "label": "OpenAI GPT-OSS 120B (131k Context)"},
+    {"id": "openai/gpt-oss-20b", "label": "OpenAI GPT-OSS 20B (Fast - 131k Context)"},
+    {"id": "qwen/qwen3.8-27b", "label": "Qwen 3.8 27B (131k Context)"},
+    {"id": "allam-2-7b", "label": "ALLaM 2 7B (Lightweight - 4k Context)"},
+]
+
+LEGACY_GROQ_MAP = {
+    "groq/compound": "openai/gpt-oss-120b",
+    "groq/compound-mini": "openai/gpt-oss-20b",
+    "llama-3.3-70b-versatile": "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
+    "llama3-70b-8192": "openai/gpt-oss-120b",
+    "llama3-8b-8192": "openai/gpt-oss-20b",
+    "mixtral-8x7b-32768": "qwen/qwen3.8-27b",
+    "gemma2-9b-it": "openai/gpt-oss-20b",
+}
+
 
 class AIEngine:
     def __init__(self):
@@ -38,7 +58,7 @@ class AIEngine:
             }
 
         # 2. YouTube Intent
-        if "youtube" in text_lower or "yt" in text_lower:
+        if re.search(r'\b(youtube|yt)\b', text_lower):
             query = re.sub(r'^(open|launch)?\s*(youtube|yt)\s*(and\s+)?(play|search|find|watch)?\s*', '', text_lower)
             query = re.sub(r'\s+on\s+(youtube|yt)$', '', query).strip()
             if query:
@@ -121,7 +141,50 @@ class AIEngine:
             }
 
         # 5. In-App Automation Intent (messaging, calling, typing inside apps)
-        msg_m = re.search(r'\b(?:send\s+(?:a\s+)?message)\s+(?:to\s+([a-z0-9\s]+?)\s+(?:that|saying)\s+(.+)|(.+?)\s+to\s+([a-z0-9\s]+))', text_lower)
+        # Specific match for "type/write <msg> in/on/at <app>"
+        type_in_app_m = re.search(r'\b(?:type|write)\s+(.+?)\s+(?:in|on|at|inside)\s+([a-z0-9\s]+?)$', text_lower)
+        if type_in_app_m:
+            msg = type_in_app_m.group(1).strip()
+            target_app = type_in_app_m.group(2).strip()
+            return {
+                "intent": "in_app_action",
+                "target": target_app,
+                "action": "type",
+                "payload": msg,
+                "requires_confirmation": False
+            }
+
+        # Specific match for "type/send message to <contact> in/on <app> as <msg>"
+        type_msg_m = re.search(r'\b(?:type|send|write)\s+(?:a\s+)?(?:message|msg|text)?\s*(?:to\s+([a-z0-9\s]+?)\s+)?(?:in|on|at|inside)\s+([a-z0-9\s]+?)\s+(?:as|that|saying)\s+(.+)', text_lower)
+        if type_msg_m:
+            contact = type_msg_m.group(1).strip() if type_msg_m.group(1) else ""
+            target_app = type_msg_m.group(2).strip()
+            msg = type_msg_m.group(3).strip()
+            return {
+                "intent": "in_app_action",
+                "target": target_app,
+                "action": "send_message",
+                "contact": contact,
+                "payload": msg,
+                "requires_confirmation": False
+            }
+
+        # Specific match for "type/send <msg> to <contact> in/on <app>"
+        type_msg_to_m = re.search(r'\b(?:type|send|write)\s+(.+?)\s+to\s+([a-z0-9\s]+?)\s+(?:in|on|at|inside)\s+([a-z0-9\s]+?)$', text_lower)
+        if type_msg_to_m:
+            msg = type_msg_to_m.group(1).strip()
+            contact = type_msg_to_m.group(2).strip()
+            target_app = type_msg_to_m.group(3).strip()
+            return {
+                "intent": "in_app_action",
+                "target": target_app,
+                "action": "send_message",
+                "contact": contact,
+                "payload": msg,
+                "requires_confirmation": False
+            }
+
+        msg_m = re.search(r'\b(?:send\s+(?:a\s+)?message)\s+(?:to\s+([a-z0-9\s]+?)\s*(?:that|saying|:)\s*(.+)|to\s+([a-z0-9\s]+?)\s+(.+)|(.+?)\s+to\s+([a-z0-9\s]+))', text_lower)
         if msg_m:
             target_app = "whatsapp" if "whatsapp" in text_lower else "whatsapp"
             if msg_m.group(1) and msg_m.group(2):
@@ -139,7 +202,7 @@ class AIEngine:
                 "requires_confirmation": False
             }
 
-        tell_m = re.search(r'\b(?:tell|whatsapp|message|text)\s+([a-z0-9\s]+?)\s+(?:that|saying)\s+(.+)', text_lower)
+        tell_m = re.search(r'\b(?:tell|whatsapp|message|text)\s+([a-z0-9\s]+?)\s+(?:that|saying|:)?\s*(.+)', text_lower)
         if tell_m:
             target_app = "whatsapp" if "whatsapp" in text_lower else "whatsapp"
             contact = tell_m.group(1).replace("on whatsapp", "").replace("in whatsapp", "").strip()
@@ -175,7 +238,7 @@ class AIEngine:
             target = re.split(r'\s+and\s+', raw_target)[0].strip()
             target = re.sub(r'^(website|url|site|app|application|program|software)\s+', '', target, flags=re.IGNORECASE).strip()
             
-            if target.startswith("http") or target.endswith((".com", ".org", ".net", ".io")) or (" " not in target and "." in target):
+            if (target.startswith("http") or target.endswith((".com", ".org", ".net", ".io", ".edu", ".gov"))) and not target.endswith((".exe", ".bat", ".cmd", ".lnk", ".py")):
                 return {
                     "intent": "open_website",
                     "target": target,
@@ -255,23 +318,24 @@ class AIEngine:
             }
         ]
         
-        for msg in history:
+        for msg in history[-6:]:
             role = "assistant" if msg.get("role") in ["byte", "assistant"] else "user"
-            messages.append({"role": role, "content": msg.get("content", "")})
+            content = msg.get("content", "")
+            if len(content) > 1200:
+                content = content[:1200] + "... [truncated]"
+            messages.append({"role": role, "content": content})
             
-        messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": prompt[:3000]})
 
         # AI Provider selection
-        provider = settings.get("ai_provider", "ollama")
-        groq_model = settings.get("groq_model", "llama-3.1-8b-instant")
-        if groq_model in ["groq/compound", "groq/compound-mini", "minimaxai/minimax-m2.7"]:
-            groq_model = "llama-3.1-8b-instant"
+        provider = settings.get("ai_provider", "groq")
+        groq_model = LEGACY_GROQ_MAP.get(settings.get("groq_model", ""), settings.get("groq_model", "openai/gpt-oss-120b")) or "openai/gpt-oss-120b"
         groq_api_key = settings.get("groq_api_key", "")
         openrouter_model = settings.get("openrouter_model", "liquid/lfm-2.5-2.6b:free")
         openrouter_api_key = settings.get("openrouter_api_key", "")
 
         if provider == "ollama":
-            response = await self._query_ollama(messages, settings.get("ollama_model", "llama3"))
+            response = await self._query_ollama(messages, settings.get("ollama_model", "qwen2.5:0.5b"))
             if not (response.startswith("[Ollama Offline]") or response.startswith("[Ollama Warning]") or response.startswith("[Ollama Error]")):
                 return response
             
@@ -330,48 +394,88 @@ class AIEngine:
         except Exception as e:
             return f"[OpenRouter Error] Could not connect to OpenRouter endpoint: {str(e)}"
 
-    async def _query_ollama(self, messages: list, model: str) -> str:
-        tag_map = {
-            "llama3": "llama3",
-            "qwen2": "qwen2",
-            "gemma2": "gemma2",
-            "deepseek-coder": "deepseek-coder"
-        }
-        target_model = tag_map.get(model, model)
-        
+    async def _ensure_ollama_running(self) -> None:
+        """Starts local Ollama service detached if not already listening on 11434."""
+        import shutil, subprocess, sys
+        ollama_bin = shutil.which("ollama")
+        if not ollama_bin and sys.platform == "win32":
+            candidate = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Ollama\ollama.exe")
+            if os.path.exists(candidate):
+                ollama_bin = candidate
+        if not ollama_bin:
+            return
+        flags = (0x00000008 | 0x08000000) if sys.platform == "win32" else 0
         try:
-            async with httpx.AsyncClient(timeout=12.0) as client:
-                # Try chat endpoint first
+            subprocess.Popen(
+                [ollama_bin, "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                creationflags=flags,
+            )
+            await asyncio.sleep(2.5)
+        except Exception:
+            pass
+
+    async def _query_ollama(self, messages: list, model: str) -> str:
+        target_model = (model or "qwen2.5:0.5b").strip()
+
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                # Auto-start local Ollama server if not currently listening
                 try:
-                    res = await client.post("http://127.0.0.1:11434/api/chat", json={
-                        "model": target_model,
-                        "messages": messages,
-                        "stream": False
-                    })
-                    if res.status_code == 200:
-                        data = res.json()
-                        content = data.get("message", {}).get("content")
-                        if content:
-                            return content
+                    await client.get("http://127.0.0.1:11434/api/tags", timeout=2.5)
+                except Exception:
+                    await self._ensure_ollama_running()
+
+                # If requested model isn't installed, automatically pick an installed local model
+                try:
+                    tags_res = await client.get("http://127.0.0.1:11434/api/tags", timeout=4.0)
+                    if tags_res.status_code == 200:
+                        installed = [m.get("name", "") for m in tags_res.json().get("models", []) if m.get("name")]
+                        if installed and target_model not in installed and f"{target_model}:latest" not in installed:
+                            base_matches = [m for m in installed if m.split(":")[0] == target_model.split(":")[0]]
+                            target_model = base_matches[0] if base_matches else installed[0]
                 except Exception:
                     pass
+
+                # Try chat endpoint first
+                res = await client.post("http://127.0.0.1:11434/api/chat", json={
+                    "model": target_model,
+                    "messages": messages,
+                    "stream": False,
+                    "keep_alive": "30m",
+                })
+                if res.status_code == 200:
+                    data = res.json()
+                    content = (data.get("message", {}).get("content") or "").strip()
+                    content = re.sub(r"<think>[\s\S]*?</think>", "", content).strip()
+                    if content:
+                        return content
+
+                if res.status_code == 404:
+                    return f"[Ollama Warning] Model '{target_model}' is not pulled locally. Run: ollama pull {target_model}"
 
                 # Fallback to generate endpoint
                 prompt_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in messages])
                 res2 = await client.post("http://127.0.0.1:11434/api/generate", json={
                     "model": target_model,
                     "prompt": prompt_str,
-                    "stream": False
+                    "stream": False,
+                    "keep_alive": "30m",
                 })
                 if res2.status_code == 200:
-                    return res2.json().get("response", "No response from Ollama.")
-                    
+                    resp_text = (res2.json().get("response") or "").strip()
+                    resp_text = re.sub(r"<think>[\s\S]*?</think>", "", resp_text).strip()
+                    return resp_text or "No response from Ollama."
+
                 if res2.status_code == 404:
-                    return f"[Ollama Warning] Model '{target_model}' is not pulled locally. Open CMD and run: ollama pull {target_model}"
-                    
+                    return f"[Ollama Warning] Model '{target_model}' is not pulled locally. Run: ollama pull {target_model}"
+
                 return f"[Ollama Error] HTTP Status {res2.status_code}"
-        except Exception as e:
-            return f"[Ollama Offline] Local Ollama service is not active on http://127.0.0.1:11434. Please install/start Ollama (https://ollama.com)."
+        except httpx.TimeoutException:
+            return "[Ollama Error] Local Ollama model load timed out. Please retry once warm."
+        except Exception:
+            return "[Ollama Offline] Local Ollama service is not active on http://127.0.0.1:11434. Please install/start Ollama (https://ollama.com)."
 
     async def _query_groq(self, messages: list, model: str, api_key: Optional[str] = None) -> str:
         if not api_key:
@@ -400,23 +504,62 @@ class AIEngine:
                 "Please paste your free Groq API key (`gsk_...`) in **SETTINGS -> AI Engine**, or switch to **Ollama** or **OpenRouter** in the top model dropdown menu."
             )
         
+        # Resolve current active Groq model ID (mapping any discontinued legacy model IDs)
+        requested_model = (model or "openai/gpt-oss-120b").strip()
+        groq_model_id = LEGACY_GROQ_MAP.get(requested_model, requested_model)
+
+        # Cap message size to prevent HTTP 413 Entity Too Large
+        safe_messages = []
+        for msg in messages:
+            content = msg.get("content", "")
+            if len(content) > 1200:
+                content = content[:1200] + "... [truncated]"
+            safe_messages.append({"role": msg.get("role", "user"), "content": content})
+
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=20.0) as client:
                 res = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                     json={
-                        "model": model,
-                        "messages": messages,
+                        "model": groq_model_id,
+                        "messages": safe_messages,
                         "max_tokens": 2048
                     }
                 )
                 if res.status_code == 200:
                     data = res.json()
-                    return data["choices"][0]["message"]["content"]
-                
+                    msg_obj = data["choices"][0]["message"]
+                    reply = (msg_obj.get("content") or "").strip()
+                    reply = re.sub(r"<think>[\s\S]*?</think>", "", reply).strip()
+                    if reply:
+                        return reply
+                    reasoning = (msg_obj.get("reasoning") or "").strip()
+                    if reasoning:
+                        return reasoning
+
+                # Handle model deprecation (404), bad request (400), or payload too large (413) with active fallback
+                if res.status_code in [400, 404, 413]:
+                    ultra_lean = [
+                        {"role": "system", "content": "You are BYTE AI assistant. Answer concisely."},
+                        {"role": "user", "content": messages[-1]["content"][:800] if messages else "Hello"}
+                    ]
+                    retry_model = "openai/gpt-oss-20b" if groq_model_id != "openai/gpt-oss-20b" else "qwen/qwen3.8-27b"
+                    res_lean = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": retry_model,
+                            "messages": safe_messages if res.status_code in [400, 404] else ultra_lean,
+                            "max_tokens": 2048
+                        }
+                    )
+                    if res_lean.status_code == 200:
+                        reply2 = (res_lean.json()["choices"][0]["message"].get("content") or "").strip()
+                        return re.sub(r"<think>[\s\S]*?</think>", "", reply2).strip() or "Response received."
+
                 # If key invalid or quota exceeded, attempt free OpenRouter fallback
-                openrouter_resp = await self._query_openrouter(messages, "liquid/lfm-2.5-2.6b:free", None)
+                openrouter_resp = await self._query_openrouter(safe_messages, "liquid/lfm-2.5-2.6b:free", None)
                 if not openrouter_resp.startswith("[OpenRouter"):
                     return openrouter_resp
 

@@ -1,4 +1,5 @@
 import os
+import threading
 import pymongo
 from typing import Dict, Any, List
 
@@ -8,9 +9,13 @@ class MongoStorage:
     def __init__(self):
         self.client = None
         self.db = None
+        threading.Thread(target=self._connect, name="BYTE-Mongo-Init", daemon=True).start()
+
+    def _connect(self):
         try:
-            self.client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
-            self.db = self.client["byte_db"]
+            client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
+            self.client = client
+            self.db = client["byte_db"]
         except Exception as e:
             print(f"[MongoDB Warning] Could not initialize client: {e}")
 

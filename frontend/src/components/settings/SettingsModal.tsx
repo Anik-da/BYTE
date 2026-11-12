@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { X, Settings, Cpu, Mic, Database, Package, Check, Sliders, RefreshCw, Sparkles } from 'lucide-react';
-import { fetchBackendSettings, saveBackendSettings } from '@/lib/desktopApi';
+import {
+  fetchBackendSettings,
+  saveBackendSettings,
+  fetchAutostartStatus,
+  fetchVoiceStatus,
+  fetchLocalModels,
+  fetchGroqModels,
+  type AutostartStatus,
+  type VoiceStatus,
+  type LocalOllamaModel,
+  type GroqModelInfo,
+} from '@/lib/desktopApi';
+import { ACTIVE_GROQ_MODELS, DEFAULT_GROQ_MODEL, normalizeGroqModel } from '@/lib/groq';
 import { checkForUpdate, CURRENT_APP_VERSION } from '@/lib/updater';
 
 interface SettingsModalProps {
@@ -10,39 +22,71 @@ interface SettingsModalProps {
 
 type TabType = 'desktop' | 'voice' | 'ai' | 'plugins' | 'memory' | 'updates';
 
+const OLLAMA_DOWNLOAD_PRESETS = [
+  'qwen2.5:0.5b',
+  'gemma3:1b',
+  'llama3.2',
+  'gemma3:4b',
+  'qwen2.5-coder:7b',
+  'deepseek-r1:1.5b',
+  'qwen3-vl:8b',
+];
+
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('ai');
   const [aiProvider, setAiProvider] = useState('groq');
-  const [groqModel, setGroqModel] = useState('groq/compound');
+  const [groqModel, setGroqModel] = useState<string>(DEFAULT_GROQ_MODEL);
   const [groqApiKey, setGroqApiKey] = useState('');
-  const [ollamaModel, setOllamaModel] = useState('llama3');
+  const [ollamaModel, setOllamaModel] = useState('gemma3:4b');
+  const [downloadModelName, setDownloadModelName] = useState('gemma3:1b');
+  const [localModels, setLocalModels] = useState<LocalOllamaModel[]>([]);
+  const [groqModels, setGroqModels] = useState<GroqModelInfo[]>(ACTIVE_GROQ_MODELS);
   const [openrouterModel, setOpenrouterModel] = useState('liquid/lfm-2.5-2.6b:free');
   const [openrouterApiKey, setOpenrouterApiKey] = useState('');
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(true);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
   const [autoLaunch, setAutoLaunch] = useState(false);
   const [autoUpdate, setAutoUpdate] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [updateStatusText, setUpdateStatusText] = useState('BYTE is up to date (v1.0.0)');
+  const [autostartStatus, setAutostartStatus] = useState<AutostartStatus | null>(null);
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      fetchBackendSettings().then((s) => {
-        if (s.ai_provider) setAiProvider(s.ai_provider);
-        if (s.groq_model) setGroqModel(s.groq_model);
-        if (s.groq_api_key !== undefined) setGroqApiKey(s.groq_api_key);
-        if (s.ollama_model) setOllamaModel(s.ollama_model);
-        if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
-        if (s.openrouter_api_key !== undefined) setOpenrouterApiKey(s.openrouter_api_key);
-        if (s.wake_word_enabled !== undefined) setWakeWordEnabled(s.wake_word_enabled);
-        if (s.auto_launch !== undefined) setAutoLaunch(s.auto_launch);
-        if (s.auto_update !== undefined) setAutoUpdate(s.auto_update);
-      });
+      Promise.all([fetchBackendSettings(), fetchLocalModels(), fetchGroqModels()]).then(
+        ([s, locals, groqs]) => {
+          if (locals) setLocalModels(locals);
+          if (groqs && groqs.length > 0) setGroqModels(groqs);
+          if (s) {
+            if (s.ai_provider) setAiProvider(s.ai_provider);
+            if (s.groq_model) setGroqModel(normalizeGroqModel(s.groq_model) as string);
+            if (s.groq_api_key !== undefined) setGroqApiKey(s.groq_api_key);
+            if (s.ollama_model) {
+              const names = (locals || []).map((m) => m.name);
+              if (names.length > 0 && !names.includes(s.ollama_model)) {
+                setOllamaModel(names[0]);
+              } else {
+                setOllamaModel(s.ollama_model);
+              }
+            } else if (locals && locals.length > 0) {
+              setOllamaModel(locals[0].name);
+            }
+            if (s.openrouter_model) setOpenrouterModel(s.openrouter_model);
+            if (s.openrouter_api_key !== undefined) setOpenrouterApiKey(s.openrouter_api_key);
+            if (s.wake_word_enabled !== undefined) setWakeWordEnabled(s.wake_word_enabled);
+            if (s.auto_launch !== undefined) setAutoLaunch(s.auto_launch);
+            if (s.auto_update !== undefined) setAutoUpdate(s.auto_update);
+          }
+        },
+      );
+      fetchAutostartStatus().then(setAutostartStatus);
+      fetchVoiceStatus().then(setVoiceStatus);
     }
   }, [isOpen]);
 
   const handleSave = async () => {
-    const success = await saveBackendSettings({
+    await saveBackendSettings({
       ai_provider: aiProvider,
       groq_model: groqModel,
       groq_api_key: groqApiKey,
@@ -53,6 +97,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       auto_launch: autoLaunch,
       auto_update: autoUpdate,
     });
+    fetchAutostartStatus().then(setAutostartStatus);
+    fetchVoiceStatus().then(setVoiceStatus);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2000);
   };
@@ -192,16 +238,18 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <div className="space-y-3">
                     <div>
                       <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
-                        Groq Model
+                        Active Groq Free Model
                       </label>
                       <select
                         value={groqModel}
                         onChange={(e) => setGroqModel(e.target.value)}
                         className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
                       >
-                        <option value="groq/compound">Groq Compound</option>
-                        <option value="groq/compound-mini">Groq Compound Mini</option>
-                        <option value="minimaxai/minimax-m2.7">MiniMax M2.7</option>
+                        {(groqModels.length > 0 ? groqModels : ACTIVE_GROQ_MODELS).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -231,10 +279,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         onChange={(e) => setOpenrouterModel(e.target.value)}
                         className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
                       >
-                        <option value="liquid/lfm-2.5-2.6b:free">LiquidAI: LFM2.5-2.6B (Free)</option>
-                        <option value="fish-audio/s2.1-pro:free">Fish Audio: S2.1 Pro Free (Free)</option>
-                        <option value="deepseek/deepseek-r1:free">DeepSeek: R1 (Free)</option>
-                        <option value="meta-llama/llama-3.3-70b-instruct:free">Meta: Llama 3.3 70B Instruct (Free)</option>
+                        <option value="liquid/lfm-2.5-2.6b:free">Liquid LFM 2.5 2.6B (Free)</option>
+                        <option value="deepseek/deepseek-r1:free">DeepSeek R1 Distill (Free)</option>
+                        <option value="meta-llama/llama-3.3-70b-instruct:free">Meta Llama 3.3 70B (Free)</option>
                       </select>
                     </div>
 
@@ -254,20 +301,70 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 )}
 
                 {aiProvider === 'ollama' && (
-                  <div>
-                    <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
-                      Local Ollama Model
-                    </label>
-                    <select
-                      value={ollamaModel}
-                      onChange={(e) => setOllamaModel(e.target.value)}
-                      className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
-                    >
-                      <option value="llama3">Llama 3 (8B)</option>
-                      <option value="qwen2">Qwen 2 (7B)</option>
-                      <option value="gemma2">Gemma 2 (9B)</option>
-                      <option value="deepseek-coder">DeepSeek Coder</option>
-                    </select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="hud-text text-xs uppercase tracking-wider text-hud-red/80">
+                        Installed Local AI Models (Attached)
+                      </label>
+                      <select
+                        value={ollamaModel}
+                        onChange={(e) => setOllamaModel(e.target.value)}
+                        className="hud-mono mt-1.5 w-full border border-hud-red/30 bg-slate-950 px-3 py-1.5 text-xs text-hud-red focus:outline-none"
+                      >
+                        {localModels.length > 0 ? (
+                          localModels.map((m) => (
+                            <option key={m.name} value={m.name}>
+                              {m.name} ({m.size || 'Local'}) — Installed
+                            </option>
+                          ))
+                        ) : (
+                          <option value={ollamaModel}>{ollamaModel} (Checking Ollama...)</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="border border-hud-red/20 bg-slate-950/60 p-2.5 space-y-2">
+                      <label className="hud-text text-[10px] uppercase tracking-wider text-hud-red/75">
+                        Pull Additional Ollama Model
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          value={downloadModelName}
+                          onChange={(e) => setDownloadModelName(e.target.value)}
+                          className="hud-mono flex-1 border border-hud-red/30 bg-slate-950 px-2.5 py-1.5 text-xs text-hud-red focus:outline-none"
+                        >
+                          {OLLAMA_DOWNLOAD_PRESETS.map((name) => (
+                            <option key={name} value={name}>
+                              {name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await fetch('http://127.0.0.1:8000/api/system/download_model', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ model_name: downloadModelName })
+                              });
+                              const data = await res.json();
+                              alert(data.message || `Started downloading ${downloadModelName} to your laptop!`);
+                              fetchLocalModels().then(setLocalModels);
+                            } catch (err: any) {
+                              alert(`Error triggering download: ${err?.message || err}`);
+                            }
+                          }}
+                          className="hud-mono flex items-center justify-center gap-1.5 border border-hud-gold/60 bg-hud-gold/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-hud-gold hover:bg-hud-gold/20"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" />
+                          Download
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-hud-red/60">
+                        Downloads locally via Ollama for 100% offline execution on your RTX 4060.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -278,7 +375,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <div className="flex items-center justify-between border border-hud-red/20 bg-hud-red/5 p-3">
                   <div>
                     <div className="hud-text text-xs font-semibold uppercase text-hud-red">Wake Word ("Hey BYTE")</div>
-                    <div className="hud-mono text-[10px] text-hud-red/60">Continuous background voice activation</div>
+                    <div className="hud-mono text-[10px] text-hud-red/60">24/7 continuous background microphone activation (no auto-shutoff)</div>
                   </div>
                   <input
                     type="checkbox"
@@ -287,6 +384,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     className="h-4 w-4 accent-hud-red"
                   />
                 </div>
+                <div className="border border-hud-red/20 bg-slate-950/60 p-3">
+                  <div className="hud-display text-[10px] uppercase font-semibold text-hud-red">
+                    24/7 Voice Daemon Telemetry
+                  </div>
+                  <div className="hud-mono mt-1.5 text-[11px] text-hud-red/80">
+                    Status:{' '}
+                    <span className={voiceStatus?.continuous_active ? 'text-hud-success font-bold' : 'text-hud-gold'}>
+                      {voiceStatus?.continuous_active
+                        ? 'LISTENING 24/7'
+                        : voiceStatus?.continuous_enabled
+                          ? (voiceStatus?.paused ? 'PAUSED' : 'STANDBY')
+                          : 'OFF (PUSH-TO-TALK ONLY)'}
+                    </span>
+                    {voiceStatus?.mic_error && (
+                      <div className="mt-1 text-[10px] text-hud-danger">{voiceStatus.mic_error}</div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -294,8 +409,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between border border-hud-red/20 bg-hud-red/5 p-3">
                   <div>
-                    <div className="hud-text text-xs font-semibold uppercase text-hud-red">Launch With Windows</div>
-                    <div className="hud-mono text-[10px] text-hud-red/60">Start BYTE minimized to system tray on login</div>
+                    <div className="hud-text text-xs font-semibold uppercase text-hud-red">Launch With Windows (24/7)</div>
+                    <div className="hud-mono text-[10px] text-hud-red/60">Auto-start 24/7 backend engine &amp; tray icon on Windows login</div>
                   </div>
                   <input
                     type="checkbox"
@@ -303,6 +418,26 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     onChange={(e) => setAutoLaunch(e.target.checked)}
                     className="h-4 w-4 accent-hud-red"
                   />
+                </div>
+                <div className="border border-hud-red/20 bg-slate-950/60 p-3 space-y-1">
+                  <div className="hud-display text-[10px] uppercase font-semibold text-hud-red">
+                    Windows 24/7 Persistence Status
+                  </div>
+                  <div className="hud-mono text-[10px] text-hud-red/75">
+                    Background Logon Task:{' '}
+                    <span className={autostartStatus?.task_registered ? 'text-hud-success' : 'text-hud-gold'}>
+                      {autostartStatus?.task_registered ? 'REGISTERED (24/7)' : 'NOT REGISTERED'}
+                    </span>
+                  </div>
+                  <div className="hud-mono text-[10px] text-hud-red/75">
+                    System Tray Autostart:{' '}
+                    <span className={autostartStatus?.tray_autostart ? 'text-hud-success' : 'text-hud-gold'}>
+                      {autostartStatus?.tray_autostart ? 'ENABLED (--minimized)' : 'DISABLED'}
+                    </span>
+                  </div>
+                  <div className="hud-mono text-[10px] text-hud-red/55 pt-1">
+                    Closing the window keeps BYTE alive in the Windows System Tray.
+                  </div>
                 </div>
               </div>
             )}

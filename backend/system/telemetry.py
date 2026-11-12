@@ -1,6 +1,9 @@
 import subprocess
+import sys
 import psutil
 from typing import Dict, Any
+
+_CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 class SystemTelemetry:
     """
@@ -26,7 +29,7 @@ class SystemTelemetry:
         
         try:
             cmd = "nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv,noheader,nounits"
-            out = subprocess.check_output(cmd, shell=True, text=True, timeout=2).strip()
+            out = subprocess.check_output(cmd, shell=True, text=True, timeout=2, creationflags=_CREATE_NO_WINDOW).strip()
             if out:
                 parts = [p.strip() for p in out.split(',')]
                 if len(parts) >= 4:

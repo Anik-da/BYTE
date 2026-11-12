@@ -57,6 +57,7 @@ export function WorldMapBackground() {
   const connectionsRef = useRef<ConnectionDot[]>([]);
   const mapImageRef = useRef<HTMLImageElement | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const hasBrowserGeoRef = useRef(false);
 
   // Load realistic high-definition SVG world map from local package
   useEffect(() => {
@@ -76,6 +77,7 @@ export function WorldMapBackground() {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           if (mounted) {
+            hasBrowserGeoRef.current = true;
             locationRef.current = {
               ...locationRef.current,
               lat: pos.coords.latitude,
@@ -92,15 +94,15 @@ export function WorldMapBackground() {
       const data = await fetchSystemTelemetry();
       if (!data || !mounted) return;
       if (data.location) {
-        const cur = locationRef.current;
-        const hasGeo = cur.lat !== 22.5726 || cur.lon !== 88.3639;
-        locationRef.current = {
-          lat: hasGeo ? cur.lat : Number(data.location.lat || 22.5726),
-          lon: hasGeo ? cur.lon : Number(data.location.lon || 88.3639),
-          city: String(data.location.city || 'Unknown'),
-          country: String(data.location.country || 'Unknown'),
-          ip: String(data.location.ip || '127.0.0.1'),
-        };
+        if (!hasBrowserGeoRef.current) {
+          locationRef.current = {
+            lat: Number(data.location.lat || 22.5726),
+            lon: Number(data.location.lon || 88.3639),
+            city: String(data.location.city || 'Unknown'),
+            country: String(data.location.country || 'Unknown'),
+            ip: String(data.location.ip || '127.0.0.1'),
+          };
+        }
       }
       if (data.connections) {
         connectionsRef.current = data.connections;
